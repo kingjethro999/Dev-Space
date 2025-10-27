@@ -1,0 +1,27 @@
+"use client"
+
+import Link from "next/link"
+import { getActivityMessage, formatDate } from "@/lib/activity-utils"
+
+interface ActivityItemProps {
+  activity: any
+  user: any
+}
+
+export function ActivityItem({ activity, user }: ActivityItemProps) {
+  if (!user) return null
+
+  return (
+    <div className="p-4 border border-border rounded-lg hover:bg-secondary transition-colors">
+      <div className="flex items-start gap-3">
+        <div className="flex-1">
+          <Link href={`/profile/${activity.user_id}`} className="font-semibold text-foreground hover:text-primary">
+            {user.username}
+          </Link>
+          <p className="text-sm text-muted-foreground mt-1">{getActivityMessage(activity)}</p>
+          <p className="text-xs text-muted-foreground mt-2">{formatDate(activity.created_at)}</p>
+        </div>
+      </div>
+    </div>
+  )
+}

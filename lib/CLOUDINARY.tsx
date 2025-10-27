@@ -1,0 +1,3 @@
+export const CLOUDINARY_API_KEY = "489659887456251"
+export const CLOUDINARY_CLOUD_NAME = "dcrh78d8z"
+export const CLOUDINARY_SECRET = "O3oRhY0-yeMy7Q9QZtsN92r0RNs"
