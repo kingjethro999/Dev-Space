@@ -4,8 +4,25 @@ import { collection, getDocs, orderBy, query, where, limit } from "firebase/fire
 import { createNotification } from "@/lib/notifications-utils"
 import { sendNotificationEmail } from "@/lib/mail-utils"
 
-export async function GET(_req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
+    // Verify Cron secret for Vercel Cron Jobs
+    const authHeader = request.headers.get('authorization')
+    
+    // Try to get from vault first, fallback to env var, then dev-secret
+    let cronSecret = 'dev-secret'
+    try {
+      const { getCronSecret } = require('@/lib/secrets')
+      cronSecret = getCronSecret()
+    } catch (e) {
+      // If vault doesn't have it, try env var
+      cronSecret = process.env.CRON_SECRET || 'dev-secret'
+    }
+    
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+    }
+    
     const usersSnap = await getDocs(collection(db, "users"))
     const now = Date.now()
     const results: any[] = []

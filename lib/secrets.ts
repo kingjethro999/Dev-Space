@@ -78,6 +78,13 @@ export function getOpenRouterApiKey(): string {
 }
 
 /**
+ * Get CRON_SECRET from encrypted vault for Vercel cron job authentication
+ */
+export function getCronSecret(): string {
+  return getSecret('CRON_SECRET');
+}
+
+/**
  * Check if vault is unlocked
  */
 export function isVaultUnlocked(): boolean {
