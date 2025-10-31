@@ -14,23 +14,33 @@
 
 ## 🌟 About
 
+Dev Space is a developer-first collaboration hub that unifies project management, community discussions, realtime messaging, analytics, and admin governance. It’s designed to help you showcase work, collaborate with teams, and grow developer communities—fast and beautifully.
+
+Explore the full documentation with a fixed sidebar and extensive guides at: [Docs →](/docs)
+
 Dev Space is a modern, enterprise-level developer community platform designed to connect developers worldwide. Built with passion by **King Jethro**, this platform enables developers to share projects, collaborate on code, engage in discussions, and build amazing things together with real-time features and professional communication tools.
 
-### ✨ Key Features
+### 🔗 Quick Links
+- **Docs**: [/docs](/docs)
+- **Admin**: [/admin](/admin) · **Performance**: [/admin/performance](/admin/performance)
+- **Discover**: [/discover](/discover) · **Projects**: [/projects](/projects)
+- **Discussions**: [/discussions](/discussions) · **Messages**: [/messages](/messages)
 
-- **🔐 Authentication** - Firebase-powered auth with GitHub & Google OAuth
-- **⚡ Real-time Features** - Live engagement, messaging, and notifications
-- **📱 Activity Feed** - Real-time activity stream with filtering and engagement
-- **💼 Project Management** - GitHub integration, task tracking, and team collaboration
-- **💬 Discussions** - Community discussions with categories and real-time comments
-- **💌 Messaging** - Direct messaging between developers with real-time sync
-- **👤 Profiles** - Comprehensive user profiles with skills and bio
-- **🔍 Search** - Advanced search functionality across projects and discussions
-- **📧 Email System** - Professional welcome emails and notifications
-- **🔔 Notifications** - Real-time in-app and email notifications
-- **📊 Admin Dashboard** - Performance monitoring and platform management
-- **🌙 Dark/Light Mode** - Modern theme switching with system preference
-- **📱 Mobile Responsive** - Optimized for all devices and screen sizes
+### ✨ Key Features
+- **🔐 Authentication**: Firebase Auth with Email/Password, Google, and GitHub OAuth
+- **⚡ Realtime**: Live activity, messaging, notifications, and presence
+- **📱 Activity Feed**: Personalized stream with filters and engagement
+- **💼 Projects**: GitHub integration, tasks, milestones, reviews, collaborators
+- **💬 Discussions**: Categories, tags, realtime comments, moderation
+- **💌 Messaging**: Direct messaging with typing and read receipts
+- **👤 Profiles**: Skills, bio, links, and collaboration graph
+- **🔍 Search**: Debounced, paginated global search with caching
+- **📧 Email**: SMTP/Nodemailer templated emails (welcome, re-engage, notify)
+- **🔔 Notifications**: In-app and email, deduped and preference-aware
+- **🛡️ Admin Suite**: User moderation, project governance, announcements, feature flags
+- **📈 Performance**: Caching, lazy-loading, code splitting, optimized media
+- **🌙 Theming**: Dark/light mode with system preference
+- **📱 Responsive**: Polished mobile-first experience
 
 ## 🛠️ Tech Stack
 
@@ -45,13 +55,13 @@ Dev Space is a modern, enterprise-level developer community platform designed to
 - **next-themes** - Dark/light mode support
 
 ### Backend & Services
-- **Firebase Auth** - Authentication with Google & GitHub OAuth
-- **Firestore** - NoSQL database for real-time data
-- **Firebase Realtime Database** - Live engagement and messaging
-- **Firebase Storage** - File and image storage
-- **Cloudinary** - Advanced media storage and optimization
-- **Gmail SMTP** - Professional email system with Nodemailer
-- **Vercel Analytics** - Performance monitoring
+- **Firebase Auth**: Secure authentication and sessions
+- **Firestore**: Document database for core entities
+- **Realtime Database**: Presence, typing, unread counts, live messaging
+- **Storage**: Assets and attachments
+- **Cloudinary**: Optimized media transformation and delivery
+- **SMTP/Nodemailer**: Branded email delivery
+- **Analytics**: Performance monitoring and insights
 
 ### Real-time Features
 - **Live Engagement** - Real-time likes, comments, shares, and views
@@ -69,45 +79,38 @@ Dev Space is a modern, enterprise-level developer community platform designed to
 ## 🚀 Getting Started
 
 ### Prerequisites
-
 - Node.js 18+ 
 - pnpm (recommended) or npm
 - Firebase project setup
 
 ### Installation
-
 1. **Clone the repository**
    ```bash
    git clone https://github.com/kingjethro999/dev-space.git
    cd dev-space
    ```
-
 2. **Install dependencies**
    ```bash
    pnpm install
    # or
    npm install
    ```
-
 3. **Set up Firebase**
    - Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
    - Enable Authentication (Email/Password, Google, GitHub)
    - Create a Firestore database
    - Enable Firebase Realtime Database
    - Update `lib/firebase.ts` with your Firebase config
-
 4. **Set up Email System**
    - Configure Gmail SMTP credentials in `lib/mail.tsx`
    - Set up Cloudinary account for media storage
    - Update `lib/CLOUDINARY.tsx` with your credentials
-
 5. **Run the development server**
    ```bash
    pnpm dev
    # or
    npm run dev
    ```
-
 6. **Open your browser**
    Navigate to [http://localhost:3000](http://localhost:3000)
 
@@ -116,12 +119,12 @@ Dev Space is a modern, enterprise-level developer community platform designed to
 ```
 dev-space/
 ├── app/                    # Next.js App Router pages
-│   ├── admin/             # Admin dashboard
+│   ├── admin/             # Admin dashboard (full platform governance)
 │   ├── api/               # API routes (email, etc.)
 │   ├── auth/              # Authentication pages
 │   ├── discussions/       # Community discussions
 │   ├── discover/          # Project discovery
-│   ├── docs/              # Documentation
+│   ├── docs/              # Documentation (fixed sidebar, extensive guides)
 │   ├── feed/              # Activity feed
 │   ├── messages/          # Direct messaging
 │   ├── projects/          # Project management
@@ -204,29 +207,39 @@ dev-space/
 - **Smooth Animations** - Framer Motion-powered transitions
 - **Accessibility** - Radix UI components with full accessibility support
 
-## 🚀 Deployment
+## 🛡️ Admin Guide
+Open the Admin Dashboard: [/admin](/admin)
 
-### Vercel (Recommended)
+- User Management: verify/suspend users, manage roles, resolve reports
+- Project Governance: feature projects, handle takedowns, visibility controls
+- Community Moderation: discussion/category controls, content flags, announcements
+- Email & Notifications: broadcast emails, template management, in-app announcements
+- Feature Flags & Settings: toggle features, configure limits and providers
+- Performance: live metrics, activity/discussion/message volumes
 
-1. **Connect your repository to Vercel**
-2. **Set environment variables**
-   - Add your Firebase configuration
-   - Configure Gmail SMTP credentials
-   - Set up Cloudinary credentials
-3. **Deploy**
-   - Automatic deployments on push to main branch
-   - Real-time features enabled by default
+Full documentation: [/docs#admin](/docs#admin) · Performance: [/admin/performance](/admin/performance)
 
-### Other Platforms
+## 🧪 Testing & Quality
+- Prefer component tests for UI, integration tests for data flows
+- Lint with ESLint; keep builds clean before PRs
 
-The app can be deployed to any platform that supports Next.js:
-- Netlify
-- AWS Amplify
-- Railway
-- DigitalOcean App Platform
+## 🧩 Troubleshooting
+- Auth errors: verify OAuth provider config and redirect URIs
+- Firestore permissions: check rules and user roles
+- Email not sending: validate SMTP and template variables
+
+## 📚 Documentation
+- Start here: [/docs](/docs)
+- Email specifics: [/docs#email-system](/docs#email-system)
+- Security: [/docs#security](/docs#security)
+
+## 🗺️ Roadmap (Highlights)
+- Advanced analytics for projects and communities
+- Automation hooks for CI notifications
+- Expanded moderation tooling and audit logs
+- More repository provider integrations
 
 ## 🤝 Contributing
-
 We welcome contributions! Please feel free to submit a Pull Request.
 
 1. Fork the repository
@@ -236,26 +249,9 @@ We welcome contributions! Please feel free to submit a Pull Request.
 5. Open a Pull Request
 
 ## 📄 License
-
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 👨‍💻 Creator
-
 **King Jethro** - [@kingjethro999](https://github.com/kingjethro999)
 
-A passionate developer who believes in the power of community and collaboration. Building tools that bring developers together and make the world a better place through code.
-
-## 🙏 Acknowledgments
-
-- The amazing Next.js team for the incredible framework
-- Firebase team for the robust backend services and real-time capabilities
-- Radix UI team for the accessible component library
-- Cloudinary team for the powerful media management platform
-- The open-source community for inspiration and support
-- All the developers who contribute to making the web a better place
-
----
-
-**Built with ❤️ by King Jethro**
-
-*Connect, collaborate, and grow with developers worldwide.*
+*Built with ❤️ to empower developers to connect, collaborate, and ship faster.*

@@ -3,8 +3,9 @@
 import type React from "react"
 
 import { useState } from "react"
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, GithubAuthProvider } from "firebase/auth"
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth"
 import { auth } from "@/lib/firebase"
+import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +13,7 @@ import Link from "next/link"
 import Image from "next/image"
 
 export default function LoginPage() {
+  const { signInWithGitHub } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -25,7 +27,7 @@ export default function LoginPage() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password)
-      router.push("/feed")
+      router.push("/discover")
     } catch (err: any) {
       setError(err.message || "Failed to sign in")
     } finally {
@@ -40,7 +42,7 @@ export default function LoginPage() {
     try {
       const provider = new GoogleAuthProvider()
       await signInWithPopup(auth, provider)
-      router.push("/feed")
+      router.push("/discover")
     } catch (err: any) {
       setError(err.message || "Failed to sign in with Google")
     } finally {
@@ -53,9 +55,8 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const provider = new GithubAuthProvider()
-      await signInWithPopup(auth, provider)
-      router.push("/feed")
+      await signInWithGitHub()
+      router.push("/discover")
     } catch (err: any) {
       setError(err.message || "Failed to sign in with GitHub")
     } finally {

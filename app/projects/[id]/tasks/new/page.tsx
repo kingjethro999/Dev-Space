@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useParams } from "next/navigation"
+import { UniversalNav } from "@/components/universal-nav"
 
 export default function NewTaskPage() {
   const { user } = useAuth()
@@ -68,7 +69,9 @@ export default function NewTaskPage() {
   }
 
   return (
-    <div className="container max-w-2xl mx-auto py-8 px-4">
+    <div className="min-h-screen bg-background">
+      <UniversalNav />
+      <div className="max-w-7xl mx-auto py-8 px-4">
       <Button variant="ghost" asChild className="mb-6">
         <Link href={`/projects/${projectId}`}>
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -112,6 +115,7 @@ export default function NewTaskPage() {
           </div>
         </form>
       </Card>
+      </div>
     </div>
   )
 }

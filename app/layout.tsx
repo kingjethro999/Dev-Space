@@ -5,18 +5,11 @@ import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { AuthProvider } from "@/lib/auth-context"
 import { ThemeProvider } from "@/components/theme-provider"
+import { CookieConsent } from "@/components/cookie-consent"
+import { Toaster } from "@/components/ui/toaster"
+import { QuickNavigator } from "@/components/quick-navigator"
 
-import { Geist, Geist_Mono, Source_Serif_4, Geist as V0_Font_Geist, Geist_Mono as V0_Font_Geist_Mono, Source_Serif_4 as V0_Font_Source_Serif_4 } from 'next/font/google'
-
-// Initialize fonts
-const _geist = V0_Font_Geist({ subsets: ['latin'], weight: ["100","200","300","400","500","600","700","800","900"] })
-const _geistMono = V0_Font_Geist_Mono({ subsets: ['latin'], weight: ["100","200","300","400","500","600","700","800","900"] })
-// const _sourceSerif_4 = V0_Font_Source_Serif_4({ subsets: ['latin'], weight: ["200","300","400","500","600","700","800","900"] })
-
-const _sourceSerif_4 = Source_Serif_4({
-  subsets: ["latin"],
-  weight: ["200", "300", "400", "500", "600", "700", "800", "900"],
-})
+// Using GitHub's system font stack - no Google Fonts needed
 
 export const metadata: Metadata = {
   title: "Dev Space - Developer Community by King Jethro",
@@ -31,15 +24,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`font-sans antialiased`}>
+      <body className="antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <QuickNavigator />
+            <Toaster />
+            {children}
+          </AuthProvider>
           <Analytics />
+          <CookieConsent />
         </ThemeProvider>
       </body>
     </html>

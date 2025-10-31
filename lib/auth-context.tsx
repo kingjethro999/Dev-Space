@@ -5,14 +5,16 @@ import { createContext, useContext, useEffect, useState } from "react"
 import { type User, onAuthStateChanged, signOut } from "firebase/auth"
 import { auth } from "./firebase"
 import { sendWelcomeEmail } from "./mail-utils"
+import { signInWithGitHub } from "./github-utils"
 
 interface AuthContextType {
   user: User | null
   loading: boolean
   logout: () => Promise<void>
+  signInWithGitHub: () => Promise<User>
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -62,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  return <AuthContext.Provider value={{ user, loading, logout }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, loading, logout, signInWithGitHub }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

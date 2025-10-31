@@ -4,11 +4,17 @@ import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { db } from "@/lib/firebase"
-import { collection, query, orderBy, limit, getDocs, onSnapshot, type Query } from "firebase/firestore"
+import { collection, query, orderBy, limit, getDocs, onSnapshot, type Query, deleteDoc, doc } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Link from "next/link"
 import Image from "next/image"
 import { formatDate } from "@/lib/activity-utils"
+import { UniversalNav } from "@/components/universal-nav"
+import { ShareToChatDialog } from "@/components/share-to-chat-dialog"
+import { Share2, Copy, Edit, Trash2 } from "lucide-react"
+import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+import { EmojiReactions } from "@/components/emoji-reactions"
 
 interface Discussion {
   id: string
@@ -20,11 +26,14 @@ interface Discussion {
   created_at: any
   view_count: number
   comment_count: number
+  media?: { type: 'image'|'video'; url: string }[]
 }
 
 interface UserData {
   [key: string]: {
     username: string
+    avatar_url?: string
+    photoURL?: string
   }
 }
 
@@ -37,6 +46,26 @@ export default function DiscussionsPage() {
   const [userData, setUserData] = useState<UserData>({})
   const [selectedCategory, setSelectedCategory] = useState<string>("All")
   const [discussionsLoading, setDiscussionsLoading] = useState(true)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareText, setShareText] = useState("")
+  const [deletingId, setDeletingId] = useState<string>("")
+  const [page, setPage] = useState(1)
+  const pageSize = 10
+
+  const shareDiscussion = (id: string) => {
+    const url = typeof window !== 'undefined' ? `${window.location.origin}/discussions/${id}` : `/discussions/${id}`
+    setShareText(`Join this discussion: ${url}`)
+    setShareOpen(true)
+  }
+  const copyDiscussion = (id: string) => {
+    const url = typeof window !== 'undefined' ? `${window.location.origin}/discussions/${id}` : `/discussions/${id}`
+    navigator.clipboard.writeText(url)
+  }
+  const deleteDiscussion = async (id: string) => {
+    await deleteDoc(doc(db, "discussions", id))
+    setDiscussions(prev => prev.filter(d => d.id !== id))
+    setDeletingId("")
+  }
 
   useEffect(() => {
     if (!loading && !user) {
@@ -83,8 +112,11 @@ export default function DiscussionsPage() {
                 const userDocs = await getDocs(query(collection(db, "users")))
                 const userDoc = userDocs.docs.find((doc) => doc.id === userId)
                 if (userDoc) {
+                  const userDocData = userDoc.data()
                   newUserData[userId] = {
-                    username: userDoc.data().username,
+                    username: userDocData.username,
+                    avatar_url: userDocData.avatar_url,
+                    photoURL: userDocData.photoURL,
                   }
                 }
               } catch (error) {
@@ -121,43 +153,14 @@ export default function DiscussionsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/feed" className="text-2xl font-bold text-primary">
-            Dev Space
-          </Link>
-          <div className="flex gap-4">
-            <Link href="/feed">
-              <Button variant="ghost">Feed</Button>
-            </Link>
-            <Link href="/projects">
-              <Button variant="ghost">Projects</Button>
-            </Link>
-            <Link href="/discussions">
-              <Button variant="ghost">Discussions</Button>
-            </Link>
-            <Link href={`/profile/${user.uid}`}>
-              <Button variant="ghost">Profile</Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <UniversalNav />
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-6">
             <div>
               <h1 className="text-3xl font-bold text-foreground mb-2">Discussions</h1>
               <p className="text-muted-foreground">Ask questions, share ideas, and learn from the community</p>
-            </div>
-            <div className="hidden lg:block">
-              <Image
-                src="/illustrations/Discussion-amico.png"
-                alt="Discussions Illustration"
-                width={200}
-                height={150}
-                className="rounded-lg"
-              />
             </div>
           </div>
           <Link href="/discussions/new">
@@ -196,30 +199,92 @@ export default function DiscussionsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {discussions.map((discussion) => (
-              <Link key={discussion.id} href={`/discussions/${discussion.id}`}>
-                <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg font-bold text-foreground hover:text-primary">{discussion.title}</h3>
-                    <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded">{discussion.category}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{discussion.content}</p>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <div className="flex gap-4">
-                      <span>by {userData[discussion.creator_id]?.username || "Unknown"}</span>
-                      <span>{formatDate(discussion.created_at)}</span>
-                    </div>
-                    <div className="flex gap-4">
-                      <span>{discussion.comment_count || 0} comments</span>
-                      <span>{discussion.view_count || 0} views</span>
-                    </div>
-                  </div>
+            {discussions.slice((page-1)*pageSize, page*pageSize).map((discussion) => (
+              <div key={discussion.id} className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer relative group">
+                <div className="absolute top-3 right-3 z-10 flex gap-1 bg-card/90 rounded">
+                  <Button variant="ghost" size="icon-sm" onClick={(e) => { e.preventDefault(); shareDiscussion(discussion.id) }}><Share2 className="w-4 h-4" /></Button>
+                  <Button variant="ghost" size="icon-sm" onClick={(e) => { e.preventDefault(); copyDiscussion(discussion.id) }}><Copy className="w-4 h-4" /></Button>
+                  {user?.uid === discussion.creator_id && (
+                    <>
+                      <Button variant="ghost" size="icon-sm" onClick={(e) => { e.preventDefault(); router.push(`/discussions/${discussion.id}`) }}><Edit className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon-sm" onClick={(e) => { e.preventDefault(); setDeletingId(discussion.id) }}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                    </>
+                  )}
                 </div>
-              </Link>
+                {deletingId === discussion.id && (
+                  <div className="absolute top-14 right-3 bg-background border rounded shadow p-3 z-30">
+                    <div>Delete this discussion?</div>
+                    <div className="flex gap-2 mt-2 justify-end">
+                      <Button variant="destructive" size="sm" onClick={(e) => { e.preventDefault(); deleteDiscussion(discussion.id) }}>Delete</Button>
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); setDeletingId("") }}>Cancel</Button>
+                    </div>
+                  </div>
+                )}
+                <Link href={`/discussions/${discussion.id}`}>
+                  <div>
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="text-lg font-bold text-foreground hover:text-primary">{discussion.title}</h3>
+                      <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded">{discussion.category}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{discussion.content}</p>
+                    {Array.isArray((discussion as any).media) && (discussion as any).media.length > 0 && (
+                      <div className="mb-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {((discussion as any).media as {type:'image'|'video';url:string}[]).slice(0,6).map((m, i) => (
+                          <div key={i} className="relative aspect-video overflow-hidden rounded border">
+                            {m.type === 'image' ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={m.url} alt="media" className="w-full h-full object-cover" />
+                            ) : (
+                              <video src={m.url} className="w-full h-full object-cover" muted controls />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="w-6 h-6">
+                            <AvatarImage src={(userData[discussion.creator_id]?.avatar_url || userData[discussion.creator_id]?.photoURL) || "/placeholder.svg"} />
+                            <AvatarFallback>{(userData[discussion.creator_id]?.username || "U").slice(0, 2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <span>by {userData[discussion.creator_id]?.username || "Unknown"}</span>
+                        </div>
+                        <span>{formatDate(discussion.created_at)}</span>
+                      </div>
+                      <div className="flex gap-4">
+                        <span>{discussion.comment_count || 0} comments</span>
+                        <span>{discussion.view_count || 0} views</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+                <div className="mt-3">
+                  <EmojiReactions parentId={discussion.id} collectionName="discussions" />
+                </div>
+              </div>
             ))}
+            {Math.ceil(discussions.length / pageSize) > 1 && (
+              <div className="pt-4">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p-1)) }} />
+                    </PaginationItem>
+                    <PaginationItem>
+                      <span className="px-3 text-sm text-muted-foreground">Page {page} of {Math.ceil(discussions.length / pageSize)}</span>
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationNext onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(Math.ceil(discussions.length / pageSize), p+1)) }} />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </div>
         )}
       </main>
+      <ShareToChatDialog open={shareOpen} onOpenChange={setShareOpen} initialText={shareText} />
     </div>
   )
 }

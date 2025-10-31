@@ -112,7 +112,7 @@ export default function ContactPage() {
     <div className="min-h-screen bg-background">
       {/* Navigation */}
       <nav className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="max-w-[1560px] mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="text-2xl font-bold text-primary">
             Dev Space
           </Link>
@@ -130,7 +130,7 @@ export default function ContactPage() {
         </div>
       </nav>
 
-      <div className="max-w-[1560px] mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
           {/* Left Column - Contact Form */}
           <div className="space-y-8">
@@ -300,6 +300,26 @@ export default function ContactPage() {
                           Explore Community
                         </Button>
                       </Link>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-card border border-border rounded-lg p-6">
+                  <div className="flex items-start space-x-4">
+                    <div className="w-12 h-12 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Mail className="w-6 h-6 text-blue-500" />
+                    </div>
+                    <div>
+                      <h4 className="text-lg font-semibold text-foreground mb-2">Email Support</h4>
+                      <p className="text-muted-foreground mb-3">
+                        Send us an email directly for any inquiries or support requests.
+                      </p>
+                      <a href="mailto:this.is.dev.space@gmail.com">
+                        <Button variant="outline" size="sm">
+                          <Mail className="w-4 h-4 mr-2" />
+                          this.is.dev.space@gmail.com
+                        </Button>
+                      </a>
                     </div>
                   </div>
                 </div>

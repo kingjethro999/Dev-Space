@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Search, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { UniversalNav } from "@/components/universal-nav"
 
 interface User {
   id: string
@@ -33,12 +34,31 @@ export default function NewMessagePage() {
     }
 
     setLoading(true)
+    
+    // Fetch all users and filter client-side for substring matching
+    // Firestore prefix queries only work for exact prefixes, so we need to fetch and filter
     const usersRef = collection(db, "users")
-    const q = query(usersRef, where("username", ">=", searchQuery), where("username", "<=", searchQuery + "\uf8ff"))
-    const snapshot = await getDocs(q)
+    const snapshot = await getDocs(usersRef)
+    
+    const searchLower = searchQuery.toLowerCase().trim()
     const foundUsers = snapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }) as User)
-      .filter((u) => u.id !== user?.uid)
+      .filter((u) => {
+        // Exclude current user
+        if (u.id === user?.uid) {
+          return false
+        }
+        
+        // Case-insensitive substring matching in username, displayName, or email
+        const username = (u.username || "").toLowerCase()
+        const displayName = ((u as any).displayName || "").toLowerCase()
+        const email = ((u as any).email || "").toLowerCase()
+        
+        return username.includes(searchLower) || 
+               displayName.includes(searchLower) || 
+               email.includes(searchLower)
+      })
+    
     setUsers(foundUsers)
     setLoading(false)
   }
@@ -105,7 +125,9 @@ export default function NewMessagePage() {
   }
 
   return (
-    <div className="container max-w-2xl mx-auto py-8 px-4">
+    <div className="min-h-screen bg-background">
+      <UniversalNav />
+      <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-6">
         <Button variant="ghost" asChild className="mb-4">
           <Link href="/messages">
@@ -168,6 +190,7 @@ export default function NewMessagePage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }

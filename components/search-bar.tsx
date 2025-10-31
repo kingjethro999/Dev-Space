@@ -63,9 +63,9 @@ export function SearchBar() {
             className="flex-1 pl-10 bg-slate-800 border-slate-700 text-white placeholder-slate-400"
           />
         </div>
-        <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700">
+        {/* <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700">
           Search
-        </Button>
+        </Button> */}
       </div>
 
       {showSuggestions && suggestions.length > 0 && (

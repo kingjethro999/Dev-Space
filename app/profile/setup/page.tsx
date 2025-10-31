@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation"
 import { db } from "@/lib/firebase"
 import { doc, updateDoc } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
+import { LogOut } from "lucide-react"
+import { UniversalNav } from "@/components/universal-nav"
 
 const SKILLS = [
   "JavaScript",
@@ -35,7 +37,7 @@ const SKILLS = [
 ]
 
 export default function ProfileSetupPage() {
-  const { user, loading } = useAuth()
+  const { user, loading, logout } = useAuth()
   const router = useRouter()
   const [bio, setBio] = useState("")
   const [selectedSkills, setSelectedSkills] = useState<string[]>([])
@@ -59,7 +61,7 @@ export default function ProfileSetupPage() {
         skills: selectedSkills,
         updated_at: new Date(),
       })
-      router.push("/feed")
+      router.push("/discover")
     } catch (error) {
       console.error("Error updating profile:", error)
     } finally {
@@ -68,12 +70,24 @@ export default function ProfileSetupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background py-12 px-4">
-      <div className="max-w-2xl mx-auto space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Complete Your Profile</h1>
-          <p className="text-muted-foreground">Help other developers get to know you</p>
-          <p className="text-xs text-muted-foreground mt-2">Welcome to Dev Space by <span className="text-blue-400 font-semibold">King Jethro</span></p>
+    <div className="min-h-screen bg-background">
+      <UniversalNav />
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Complete Your Profile</h1>
+            <p className="text-muted-foreground">Help other developers get to know you</p>
+            <p className="text-xs text-muted-foreground mt-2">Welcome to Dev Space by <span className="text-blue-400 font-semibold">King Jethro</span></p>
+          </div>
+          <Button
+            variant="ghost"
+            onClick={async () => {
+              await logout()
+            }}
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
         </div>
 
         <div className="space-y-6">
@@ -111,7 +125,7 @@ export default function ProfileSetupPage() {
             <Button onClick={handleSave} disabled={saving} className="flex-1">
               {saving ? "Saving..." : "Complete Setup"}
             </Button>
-            <Button onClick={() => router.push("/feed")} variant="outline" className="flex-1">
+            <Button onClick={() => router.push("/discover")} variant="outline" className="flex-1">
               Skip for Now
             </Button>
           </div>

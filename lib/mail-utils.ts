@@ -20,6 +20,16 @@ export interface NotificationEmailData {
   actionLink?: string
 }
 
+export interface CommitAlertEmailData {
+  to: string
+  username: string
+  repoName: string
+  commitMessage: string
+  commitUrl: string
+  journeyUrl: string
+  commitAuthor: string
+}
+
 // Send email using your Gmail SMTP credentials
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
@@ -76,7 +86,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<boolean>
       <div class="container">
         <div class="header">
           <div class="logo-container">
-            <img src="https://dev-space.vercel.app/dev-space-icon-transparent.png" alt="Dev Space Logo" class="logo">
+            <img src="https://the-dev-space.vercel.app/dev-space-icon-transparent.png" alt="Dev Space Logo" class="logo">
             <h1 style="margin: 0;">${greeting} 🚀</h1>
           </div>
         </div>
@@ -145,7 +155,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<boolean>
           
           <p>${isReturning ? 'Ready to reconnect with the community?' : 'Ready to start your developer journey?'}</p>
           
-          <a href="https://dev-space.vercel.app/feed" class="button">
+          <a href="https://the-dev-space.vercel.app/discover" class="button">
             ${isReturning ? 'Explore What\'s New' : 'Start Exploring DevSpace'}
           </a>
           
@@ -155,7 +165,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<boolean>
           The DevSpace Team</p>
         </div>
         <div class="footer">
-          <img src="https://dev-space.vercel.app/dev-space-icon-transparent.png" alt="Dev Space Logo" class="footer-logo">
+          <img src="https://the-dev-space.vercel.app/dev-space-icon-transparent.png" alt="Dev Space Logo" class="footer-logo">
           <p>This email was sent to ${data.username}. If you didn't create an account, please ignore this email.</p>
           <p>© 2025 DevSpace. All rights reserved.</p>
         </div>
@@ -200,7 +210,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<boolean>
     
     ${isReturning ? 'Ready to reconnect with the community?' : 'Ready to start your developer journey?'}
     
-    Visit: https://dev-space.vercel.app/feed
+    Visit: https://the-dev-space.vercel.app/discover
     
     Happy coding!
     The DevSpace Team
@@ -238,7 +248,7 @@ export async function sendNotificationEmail(data: NotificationEmailData): Promis
       <div class="container">
         <div class="header">
           <div class="logo-container">
-            <img src="https://dev-space.vercel.app/dev-space-icon-transparent.png" alt="Dev Space Logo" class="logo">
+            <img src="https://the-dev-space.vercel.app/dev-space-icon-transparent.png" alt="Dev Space Logo" class="logo">
             <h2 style="margin: 0;">DevSpace Notification</h2>
           </div>
         </div>
@@ -254,7 +264,7 @@ export async function sendNotificationEmail(data: NotificationEmailData): Promis
           The DevSpace Team</p>
         </div>
         <div class="footer">
-          <img src="https://dev-space.vercel.app/dev-space-icon-transparent.png" alt="Dev Space Logo" class="footer-logo">
+          <img src="https://the-dev-space.vercel.app/dev-space-icon-transparent.png" alt="Dev Space Logo" class="footer-logo">
           <p>© 2025 DevSpace. All rights reserved.</p>
         </div>
       </div>
@@ -266,6 +276,108 @@ export async function sendNotificationEmail(data: NotificationEmailData): Promis
     to: data.username,
     subject: `DevSpace: ${data.notificationType}`,
     html,
+  })
+}
+
+// Send commit alert email
+export async function sendCommitAlertEmail(data: CommitAlertEmailData): Promise<boolean> {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>New Commit Detected</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .logo { width: 50px; height: 50px; margin: 0 auto 15px; display: block; }
+        .logo-container { display: flex; align-items: center; justify-content: center; gap: 15px; }
+        .content { background: white; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e9ecef; }
+        .button { display: inline-block; background: #667eea; color: white; padding: 14px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+        .commit-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }
+        .commit-message { font-style: italic; color: #495057; margin-top: 10px; }
+        .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+        .footer-logo { width: 30px; height: 30px; margin: 0 auto 10px; display: block; opacity: 0.7; }
+        .highlight { background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo-container">
+            <img src="https://the-dev-space.vercel.app/dev-space-icon-transparent.png" alt="Dev Space Logo" class="logo">
+            <h2 style="margin: 0;">New Commit Detected</h2>
+          </div>
+        </div>
+        <div class="content">
+          <h3>Hi ${data.username}! 👋</h3>
+          
+          <p>We noticed a commit in your <strong>${data.repoName}</strong> repository</p>
+          
+          <div class="commit-info">
+            <p><strong>Commit Author:</strong> ${data.commitAuthor}</p>
+            <p class="commit-message"><strong>Message:</strong> ${data.commitMessage.split('\n')[0]}</p>
+            <p><a href="${data.commitUrl}" style="color: #667eea; text-decoration: none;">View on GitHub →</a></p>
+          </div>
+          
+          <div class="highlight">
+            <p><strong>💡 In Dev-Space we believe no commit is too little or irrelevant, want to log it in?</strong></p>
+            <p>Keep your users updated on your exciting journey</p>
+          </div>
+          
+          <p>Click the link below to log this commit into your journey</p>
+          
+          <div style="text-align: center;">
+            <a href="${data.journeyUrl}" class="button">
+              Log Commit to Journey
+            </a>
+          </div>
+          
+          <p style="margin-top: 30px; color: #666; font-size: 14px;">
+            With ❤️ From the Dev Space Community
+          </p>
+          
+          <p>Best regards,<br>
+          The DevSpace Team</p>
+        </div>
+        <div class="footer">
+          <img src="https://the-dev-space.vercel.app/dev-space-icon-transparent.png" alt="Dev Space Logo" class="footer-logo">
+          <p>© 2025 DevSpace. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+
+  const text = `
+    New Commit Detected
+    
+    Hi ${data.username}!
+    
+    We noticed a commit in your ${data.repoName} repository
+    
+    Commit Author: ${data.commitAuthor}
+    Message: ${data.commitMessage.split('\n')[0]}
+    View on GitHub: ${data.commitUrl}
+    
+    In Dev-Space we believe no commit is too little or irrelevant, want to log it in?
+    Keep your users updated on your exciting journey
+    
+    Click the link below to log this commit into your journey:
+    ${data.journeyUrl}
+    
+    With ❤️ From the Dev Space Community
+    
+    Best regards,
+    The DevSpace Team
+  `
+
+  return await sendEmail({
+    to: data.to,
+    subject: `New Commit in ${data.repoName} - Log it to your Journey?`,
+    html,
+    text,
   })
 }
 

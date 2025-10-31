@@ -7,11 +7,11 @@ import {
   createUserWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
-  GithubAuthProvider,
   updateProfile,
 } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
 import { doc, setDoc } from "firebase/firestore"
+import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,7 @@ import Link from "next/link"
 import Image from "next/image"
 
 export default function SignupPage() {
+  const { signInWithGitHub } = useAuth()
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -86,10 +87,9 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
-      const provider = new GithubAuthProvider()
-      const result = await signInWithPopup(auth, provider)
-      const displayName = result.user.displayName || "Developer"
-      await createUserProfile(result.user.uid, displayName, result.user.email || "")
+      const result = await signInWithGitHub()
+      const displayName = result.displayName || "Developer"
+      await createUserProfile(result.uid, displayName, result.email || "")
       router.push("/profile/setup")
     } catch (err: any) {
       setError(err.message || "Failed to sign up with GitHub")

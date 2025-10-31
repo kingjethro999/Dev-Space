@@ -7,6 +7,10 @@ import { db } from "@/lib/firebase"
 import { doc, getDoc, updateDoc } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { LogOut } from "lucide-react"
+import { UniversalNav } from "@/components/universal-nav"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { uploadImage } from "@/lib/cloudinary-utils"
 
 const SKILLS = [
   "JavaScript",
@@ -36,7 +40,7 @@ const SKILLS = [
 ]
 
 export default function EditProfilePage() {
-  const { user, loading } = useAuth()
+  const { user, loading, logout } = useAuth()
   const router = useRouter()
   const params = useParams()
   const profileId = params.id as string
@@ -45,6 +49,9 @@ export default function EditProfilePage() {
   const [selectedSkills, setSelectedSkills] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
+  const [avatarUrl, setAvatarUrl] = useState<string>("")
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -65,6 +72,7 @@ export default function EditProfilePage() {
           const data = userDoc.data()
           setBio(data.bio || "")
           setSelectedSkills(data.skills || [])
+          setAvatarUrl(data.avatar_url || data.photoURL || "")
         }
       } catch (error) {
         console.error("Error fetching profile:", error)
@@ -93,9 +101,23 @@ export default function EditProfilePage() {
   const handleSave = async () => {
     setSaving(true)
     try {
+      // Upload avatar first if a new file is selected
+      let newAvatarUrl = avatarUrl
+      if (avatarFile) {
+        setUploadingAvatar(true)
+        try {
+          const res = await uploadImage(avatarFile, 'dev-space/avatars')
+          newAvatarUrl = res.secure_url
+          setAvatarUrl(newAvatarUrl)
+        } finally {
+          setUploadingAvatar(false)
+        }
+      }
+
       await updateDoc(doc(db, "users", user.uid), {
         bio,
         skills: selectedSkills,
+        avatar_url: newAvatarUrl || "",
         updated_at: new Date(),
       })
       router.push(`/profile/${user.uid}`)
@@ -108,24 +130,53 @@ export default function EditProfilePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/feed" className="text-2xl font-bold text-primary">
-            Dev Space
-          </Link>
-        </div>
-      </nav>
+      <UniversalNav />
 
-      <main className="max-w-2xl mx-auto px-4 py-8">
-        <Link href={`/profile/${user.uid}`} className="text-primary hover:underline mb-6 inline-block">
-          Back to Profile
-        </Link>
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <Link href={`/profile/${user.uid}`} className="text-primary hover:underline">
+            Back to Profile
+          </Link>
+          <Button
+            variant="ghost"
+            onClick={async () => {
+              await logout()
+            }}
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
+        </div>
 
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Edit Profile</h1>
         </div>
 
         <div className="space-y-6 bg-card border border-border rounded-lg p-6">
+          <div>
+            <label className="block text-sm font-medium mb-2">Profile Image</label>
+            <div className="flex items-center gap-4">
+              <Avatar className="w-20 h-20">
+                <AvatarImage src={avatarUrl || "/placeholder.svg"} className="object-cover" />
+                <AvatarFallback>{(user?.displayName || user?.email || 'U').slice(0,2).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div className="space-y-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
+                  className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                />
+                {avatarFile && (
+                  <p className="text-xs text-muted-foreground">Selected: {avatarFile.name}</p>
+                )}
+                {uploadingAvatar && (
+                  <p className="text-xs text-muted-foreground">Uploading image...</p>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-2">Bio</label>
             <textarea
@@ -157,8 +208,8 @@ export default function EditProfilePage() {
           </div>
 
           <div className="flex gap-4">
-            <Button onClick={handleSave} disabled={saving} className="flex-1">
-              {saving ? "Saving..." : "Save Changes"}
+            <Button onClick={handleSave} disabled={saving || uploadingAvatar} className="flex-1">
+              {saving ? "Saving..." : uploadingAvatar ? "Uploading..." : "Save Changes"}
             </Button>
             <Link href={`/profile/${user.uid}`} className="flex-1">
               <Button variant="outline" className="w-full bg-transparent">

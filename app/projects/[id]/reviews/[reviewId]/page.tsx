@@ -25,6 +25,10 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Check, X } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
+import { UniversalNav } from "@/components/universal-nav"
+import { ThreadedComments, ThreadedComment } from "@/components/ThreadedComments"
+import { deleteDoc } from "firebase/firestore"
+import { ShareToChatDialog } from "@/components/share-to-chat-dialog"
 
 interface CodeReview {
   id: string
@@ -59,10 +63,12 @@ export default function CodeReviewDetailPage() {
 
   const [review, setReview] = useState<CodeReview | null>(null)
   const [project, setProject] = useState<any>(null)
-  const [comments, setComments] = useState<Comment[]>([])
+  const [allComments, setAllComments] = useState<ThreadedComment[]>([])
   const [newComment, setNewComment] = useState("")
-  const [userData, setUserData] = useState<{ [key: string]: UserData }>({})
+  const [userMap, setUserMap] = useState<{ [key: string]: UserData }>({})
   const [loading, setLoading] = useState(true)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareText, setShareText] = useState("")
 
   useEffect(() => {
     const fetchData = async () => {
@@ -71,16 +77,13 @@ export default function CodeReviewDetailPage() {
         if (reviewDoc.exists()) {
           const reviewData = { id: reviewDoc.id, ...reviewDoc.data() } as CodeReview
           setReview(reviewData)
-
           const authorDoc = await getDoc(doc(db, "users", reviewData.author_id))
           if (authorDoc.exists()) {
-            setUserData((prev) => ({
-              ...prev,
-              [reviewData.author_id]: authorDoc.data() as UserData,
-            }))
+            const map = { ...userMap }
+            map[reviewData.author_id] = authorDoc.data() as UserData
+            setUserMap(map)
           }
         }
-
         const projectDoc = await getDoc(doc(db, "projects", projectId))
         if (projectDoc.exists()) {
           setProject({ id: projectDoc.id, ...projectDoc.data() })
@@ -99,30 +102,20 @@ export default function CodeReviewDetailPage() {
 
   useEffect(() => {
     if (!reviewId) return
-
     const q = query(collection(db, "review_comments"), where("review_id", "==", reviewId), orderBy("created_at", "asc"))
-
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const commentsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Comment[]
-      setComments(commentsData)
-
-      const userIds = [...new Set(commentsData.map((c) => c.user_id))]
-      const newUserData: { [key: string]: UserData } = { ...userData }
-
-      for (const userId of userIds) {
-        if (!newUserData[userId]) {
-          const userDoc = await getDoc(doc(db, "users", userId))
-          if (userDoc.exists()) {
-            newUserData[userId] = userDoc.data() as UserData
-          }
+      const commentsData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as ThreadedComment)
+      setAllComments(commentsData)
+      const userIds = [...new Set(commentsData.map(c => c.user_id))]
+      const map = { ...userMap }
+      for (const uid of userIds) {
+        if (!map[uid]) {
+          const uDoc = await getDoc(doc(db, "users", uid))
+          if (uDoc.exists()) map[uid] = uDoc.data() as UserData
         }
       }
-      setUserData(newUserData)
+      setUserMap(map)
     })
-
     return () => unsubscribe()
   }, [reviewId])
 
@@ -142,18 +135,26 @@ export default function CodeReviewDetailPage() {
     setReview({ ...review, status: newStatus })
   }
 
-  const addComment = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!user || !newComment.trim()) return
-
+  const addCommentThreaded = async (content: string, parentId?: string | null) => {
+    if (!user || !content.trim()) return
     await addDoc(collection(db, "review_comments"), {
       review_id: reviewId,
       user_id: user.uid,
-      content: newComment.trim(),
+      content: content.trim(),
       created_at: serverTimestamp(),
+      parent_id: parentId || null,
     })
-
-    setNewComment("")
+  }
+  const editCommentThreaded = async (commentId: string, newContent: string) => {
+    await updateDoc(doc(db, "review_comments", commentId), { content: newContent })
+  }
+  const deleteCommentThreaded = async (commentId: string) => {
+    await deleteDoc(doc(db, "review_comments", commentId))
+  }
+  const shareCommentThreaded = (commentId: string) => {
+    const url = typeof window !== 'undefined' ? `${window.location.origin}/projects/${projectId}/reviews/${reviewId}#comment-${commentId}` : `/projects/${projectId}/reviews/${reviewId}`
+    setShareText(`Check this comment: ${url}`)
+    setShareOpen(true)
   }
 
   if (loading) {
@@ -171,10 +172,12 @@ export default function CodeReviewDetailPage() {
   }
 
   const isProjectOwner = user?.uid === project.owner_id
-  const author = userData[review.author_id]
+  const author = userMap[review.author_id]
 
   return (
-    <div className="container max-w-4xl mx-auto py-8 px-4">
+    <div className="min-h-screen bg-background">
+      <UniversalNav />
+      <div className="max-w-7xl mx-auto py-8 px-4">
       <Button variant="ghost" asChild className="mb-6">
         <Link href={`/projects/${projectId}/reviews`}>
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -230,46 +233,24 @@ export default function CodeReviewDetailPage() {
 
       <Card className="p-8">
         <h2 className="text-xl font-bold mb-4">Comments</h2>
-
-        <form onSubmit={addComment} className="mb-6">
-          <Textarea
-            placeholder="Add your feedback..."
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            className="mb-2"
-          />
-          <Button type="submit" disabled={!newComment.trim()}>
-            Post Comment
-          </Button>
+        <form onSubmit={(e) => { e.preventDefault(); addCommentThreaded(newComment); setNewComment(""); }} className="mb-6">
+          <Textarea placeholder="Add your feedback..." value={newComment} onChange={(e) => setNewComment(e.target.value)} className="mb-2" />
+          <Button type="submit" disabled={!newComment.trim()}>Post Comment</Button>
         </form>
-
-        <div className="space-y-4">
-          {comments.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">No comments yet</p>
-          ) : (
-            comments.map((comment) => {
-              const commentUser = userData[comment.user_id]
-              return (
-                <div key={comment.id} className="flex gap-3">
-                  <Avatar className="w-8 h-8">
-                    <AvatarImage src={commentUser?.avatar_url || "/placeholder.svg"} />
-                    <AvatarFallback>{commentUser?.username?.slice(0, 2).toUpperCase() || "U"}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-sm">{commentUser?.username}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {comment.created_at?.toDate?.()?.toLocaleDateString()}
-                      </span>
-                    </div>
-                    <p className="text-sm">{comment.content}</p>
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </div>
+        <ThreadedComments
+          comments={allComments}
+          userMap={userMap}
+          currentUserId={user?.uid}
+          collectionName="review_comments"
+          addComment={addCommentThreaded}
+          editComment={editCommentThreaded}
+          deleteComment={deleteCommentThreaded}
+          shareComment={shareCommentThreaded}
+          canDeleteAny={user?.uid === project.owner_id}
+        />
       </Card>
+      <ShareToChatDialog open={shareOpen} onOpenChange={setShareOpen} initialText={shareText} />
+      </div>
     </div>
   )
 }

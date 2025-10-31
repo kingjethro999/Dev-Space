@@ -14,6 +14,9 @@ import {
   getDoc,
   getDocs,
   serverTimestamp,
+  limit,
+  setDoc,
+  updateDoc,
 } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -21,9 +24,12 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, X, Search } from "lucide-react"
+import { ArrowLeft, X, Search, Github } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
+import { UniversalNav } from "@/components/universal-nav"
+import { getRepoCollaborators } from "@/lib/github-utils"
+import { approveJourneyEntry, rejectJourneyEntry } from "@/lib/journey-utils"
 
 interface Collaborator {
   id: string
@@ -51,17 +57,22 @@ export default function CollaboratorsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [pendingRequests, setPendingRequests] = useState<any[]>([])
+  const [syncing, setSyncing] = useState(false)
+  const [pendingEntries, setPendingEntries] = useState<any[]>([])
+  const [lastSync, setLastSync] = useState<Date | null>(null)
 
   useEffect(() => {
     const fetchProject = async () => {
       const projectDoc = await getDoc(doc(db, "projects", projectId))
       if (projectDoc.exists()) {
-        const projectData = { id: projectDoc.id, ...projectDoc.data() }
+        const projectData = { id: projectDoc.id, ...projectDoc.data() } as any
         setProject(projectData)
 
-        if (user?.uid !== projectData.owner_id) {
+        if (user?.uid !== (projectData as any).owner_id) {
           router.push(`/projects/${projectId}`)
         }
+        setLastSync((projectData as any).last_github_sync_at?.toDate?.() || null)
       }
       setLoading(false)
     }
@@ -100,20 +111,61 @@ export default function CollaboratorsPage() {
     return () => unsubscribe()
   }, [projectId, project])
 
+  useEffect(() => {
+    if (!projectId) return
+
+    const qReq = query(collection(db, 'collaboration_requests'), where('project_id', '==', projectId))
+    const unsubReq = onSnapshot(qReq, (snap) => {
+      setPendingRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    })
+
+    const qEntries = query(collection(db, 'journey_entries'), where('projectId', '==', projectId), where('status', '==', 'pending'))
+    const unsubEntries = onSnapshot(qEntries, (snap) => {
+      setPendingEntries(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    })
+
+    return () => { unsubReq(); unsubEntries() }
+  }, [projectId])
+
   const searchUsers = async () => {
-    if (!searchQuery.trim()) {
+    // Skip search if it's a mention (starts with @ and is part of mention autocomplete)
+    if (searchQuery.includes("@") && searchQuery.match(/\s@\w/)) {
+      return
+    }
+
+    // Extract search term (remove @ if present at start)
+    const searchTerm = searchQuery.startsWith("@") ? searchQuery.slice(1) : searchQuery
+    
+    if (!searchTerm.trim()) {
       setSearchResults([])
       return
     }
 
+    // Fetch users and filter client-side for substring matching
+    // Firestore prefix queries only work for exact prefixes, so we need to fetch and filter
     const usersRef = collection(db, "users")
-    const q = query(usersRef, where("username", ">=", searchQuery), where("username", "<=", searchQuery + "\uf8ff"))
-    const snapshot = await getDocs(q)
-
+    const snapshot = await getDocs(usersRef)
+    
+    const searchLower = searchTerm.toLowerCase().trim()
     const existingCollaboratorIds = collaborators.map((c) => c.user_id)
+    
     const results = snapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .filter((u) => u.id !== user?.uid && u.id !== project?.owner_id && !existingCollaboratorIds.includes(u.id))
+      .map((doc) => ({ id: doc.id, ...doc.data() } as any))
+      .filter((u: any) => {
+        // Exclude current user and existing collaborators
+        if (u.id === user?.uid || u.id === project?.owner_id || existingCollaboratorIds.includes(u.id)) {
+          return false
+        }
+        
+        // Case-insensitive substring matching in username, displayName, or email
+        const username = (u.username || "").toLowerCase()
+        const displayName = (u.displayName || "").toLowerCase()
+        const email = (u.email || "").toLowerCase()
+        
+        return username.includes(searchLower) || 
+               displayName.includes(searchLower) || 
+               email.includes(searchLower)
+      })
 
     setSearchResults(results)
   }
@@ -126,7 +178,8 @@ export default function CollaboratorsPage() {
   }, [searchQuery])
 
   const addCollaborator = async (userId: string, role: "contributor" | "viewer") => {
-    await addDoc(collection(db, "collaborations"), {
+    const collabId = `${projectId}_${userId}`
+    await setDoc(doc(db, "collaborations", collabId), {
       project_id: projectId,
       user_id: userId,
       role,
@@ -149,16 +202,39 @@ export default function CollaboratorsPage() {
   }
 
   const updateRole = async (collabId: string, newRole: "contributor" | "viewer") => {
-    const collabRef = doc(db, "collaborations", collabId)
-    await deleteDoc(collabRef)
-    const collab = collaborators.find((c) => c.id === collabId)
-    if (collab) {
-      await addDoc(collection(db, "collaborations"), {
-        project_id: projectId,
-        user_id: collab.user_id,
-        role: newRole,
-        joined_at: serverTimestamp(),
-      })
+    // collabId is `${projectId}_${userId}`
+    await updateDoc(doc(db, "collaborations", collabId), { role: newRole })
+  }
+
+  const approveRequest = async (requestId: string, requesterId: string) => {
+    const collabId = `${projectId}_${requesterId}`
+    await setDoc(doc(db, "collaborations", collabId), {
+      project_id: projectId,
+      user_id: requesterId,
+      role: "contributor",
+      joined_at: serverTimestamp(),
+    })
+    await deleteDoc(doc(db, 'collaboration_requests', requestId))
+  }
+
+  const declineRequest = async (requestId: string) => {
+    await deleteDoc(doc(db, 'collaboration_requests', requestId))
+  }
+
+  const syncFromGitHub = async () => {
+    if (!project || !user) return
+    if (!project.github_repo_full_name && !project.github_url) return
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/github/collaborators/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId }) })
+      const json = await res.json()
+      if (json.ok) {
+        setLastSync(new Date())
+      }
+    } catch (e) {
+      console.error('GitHub sync failed:', e)
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -171,7 +247,9 @@ export default function CollaboratorsPage() {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto py-8 px-4">
+    <div className="min-h-screen bg-background">
+      <UniversalNav />
+      <div className="max-w-7xl mx-auto px-4 py-8">
       <Button variant="ghost" asChild className="mb-6">
         <Link href={`/projects/${projectId}`}>
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -182,18 +260,88 @@ export default function CollaboratorsPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Collaborators</h1>
         <p className="text-muted-foreground">Manage who can contribute to {project.title}</p>
+        {project.collaboration_type && (
+          <p className="text-xs text-muted-foreground mt-1">Mode: <span className="font-medium">{project.collaboration_type}</span></p>
+        )}
       </div>
 
-      <Card className="p-6 mb-6">
+      {project.collaboration_type === 'authorized' && project.collaboration_sync_github && (
+        <Card className="p-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold mb-1">Sync GitHub Collaborators</h3>
+              <p className="text-sm text-muted-foreground">Import collaborators from the linked GitHub repository.</p>
+              {lastSync && (
+                <p className="text-xs text-muted-foreground mt-1">Last synced: {lastSync.toLocaleString()}</p>
+              )}
+            </div>
+            <Button size="sm" onClick={syncFromGitHub} disabled={syncing}>
+              <Github className="w-4 h-4 mr-2" /> {syncing ? 'Syncing...' : 'Sync Now'}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {project.collaboration_type === 'authorized' && (
+        <Card className="p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">Pending Requests</h2>
+          {pendingRequests.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No pending requests</p>
+          ) : (
+            <div className="space-y-2">
+              {pendingRequests.map((req) => (
+                <div key={req.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="text-sm">
+                    <span className="font-medium">User</span> requested to collaborate
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => approveRequest(req.id, req.requester_id)}>Approve</Button>
+                    <Button size="sm" variant="outline" onClick={() => declineRequest(req.id)}>Decline</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {project.collaboration_type !== 'solo' && (
+        <Card className="p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">Moderation Queue</h2>
+          {pendingEntries.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No pending contributions</p>
+          ) : (
+            <div className="space-y-3">
+              {pendingEntries.map((entry) => (
+                <div key={entry.id} className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-semibold">{entry.title}</div>
+                    <div className="text-xs text-muted-foreground">{entry.type}</div>
+                  </div>
+                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{entry.content}</p>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={async () => { await approveJourneyEntry(entry.id, user!.uid) }}>Approve</Button>
+                    <Button size="sm" variant="outline" onClick={async () => { await rejectJourneyEntry(entry.id, user!.uid) }}>Reject</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      <Card className="p-6">
         <h2 className="text-xl font-semibold mb-4">Add Collaborator</h2>
         <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <Input
-            placeholder="Search by username..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 z-10 pointer-events-none" />
+          <div className="relative">
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Type @username to search or enter a name/email..."
+              className="pl-10 w-full"
+            />
+          </div>
         </div>
 
         {searchResults.length > 0 && (
@@ -281,6 +429,7 @@ export default function CollaboratorsPage() {
           )}
         </div>
       </Card>
+      </div>
     </div>
   )
 }

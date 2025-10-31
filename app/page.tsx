@@ -8,17 +8,21 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Link from "next/link"
 import Image from "next/image"
-import { 
-  Code2, Users, GitBranch, MessageSquare, ArrowRight, Sun, Moon, 
-  Star, Zap, Shield, Globe, Sparkles, Search, Menu, X, 
+import {
+  Code2, Users, GitBranch, MessageSquare, ArrowRight, Sun, Moon,
+  Star, Zap, Shield, Globe, Sparkles, Search, Menu, X,
   Github, ExternalLink, Play, ChevronRight, Bot, Send,
   Terminal, Database, Cloud, Lock, CheckCircle, Rocket, Settings,
-  Building2, Network, Code, Laptop, Monitor, Smartphone, 
+  Building2, Network, Code, Laptop, Monitor, Smartphone,
   Briefcase, Target, Award, TrendingUp, Users2, GitCommit,
   BookOpen, Lightbulb, Cpu, HardDrive, Wifi, Globe2, HelpCircle
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
+import { useAnalytics } from "@/hooks/use-analytics"
+import { GLOW_AI_SYSTEM_PROMPT } from "@/lib/glow-ai-config"
 
 export default function Home() {
   const { user, loading } = useAuth()
@@ -28,11 +32,14 @@ export default function Home() {
   const [mounted, setMounted] = useState(false)
   const [aiChatOpen, setAiChatOpen] = useState(false)
   const [chatMessage, setChatMessage] = useState("")
-  const [chatHistory, setChatHistory] = useState<Array<{role: string, content: string}>>([])
+  const [chatHistory, setChatHistory] = useState<Array<{ role: string, content: string }>>([])
   const [isLoading, setIsLoading] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { scrollY } = useScroll()
   const y = useTransform(scrollY, [0, 300], [0, -50])
+
+  // Initialize analytics if user has consented
+  useAnalytics()
 
   useEffect(() => {
     setMounted(true)
@@ -44,45 +51,62 @@ export default function Home() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.push("/feed")
+      router.push("/discover")
     }
   }, [user, loading, router])
 
   const handleAiChat = async (message: string) => {
     if (!message.trim()) return
-    
+
     setIsLoading(true)
     setChatHistory(prev => [...prev, { role: 'user', content: message }])
     setChatMessage("")
-    
+
     try {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      // Use our secure API route instead of calling OpenRouter directly
+      const response = await fetch("/api/openrouter", {
         method: "POST",
         headers: {
-          "Authorization": "Bearer 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",
-          "HTTP-Referer": "https://dev-space.vercel.app",
-          "X-Title": "Dev Space",
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          "model": "deepseek/deepseek-chat-v3-0324:free",
+          "model": "google/gemma-3-27b-it:free",
           "messages": [
+            {
+              "role": "system",
+              "content": GLOW_AI_SYSTEM_PROMPT
+            },
             ...chatHistory,
             { role: "user", content: message }
           ]
         })
       })
-      
+
       if (!response.ok) {
+        // Try to get error details
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage = typeof errorData.error === 'string' 
+              ? errorData.error 
+              : errorData.error.message || errorMessage;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch (e) {
+          errorMessage = `${response.status}: ${response.statusText || 'Unknown error'}`;
+        }
+
         if (response.status === 429) {
           throw new Error('Rate limit exceeded. Please wait a moment before trying again.')
         }
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(errorMessage);
       }
-      
+
       const data = await response.json()
       console.log('API Response:', data) // Debug log
-      
+
       // Handle different response formats
       let assistantMessage = ''
       if (data.choices && data.choices.length > 0 && data.choices[0].message) {
@@ -94,14 +118,14 @@ export default function Home() {
       } else {
         assistantMessage = 'I received an unexpected response format. Please try again.'
       }
-      
+
       setChatHistory(prev => [...prev, { role: 'assistant', content: assistantMessage }])
     } catch (error) {
       console.error('AI Chat error:', error)
-      
+
       // Provide helpful fallback responses based on error type
       let errorMessage = 'Sorry, I encountered an error. Please try again.'
-      
+
       if (error instanceof Error) {
         if (error.message.includes('Rate limit')) {
           errorMessage = 'I\'m getting too many requests right now. Please wait a moment and try again. In the meantime, feel free to explore DevSpace features!'
@@ -111,7 +135,7 @@ export default function Home() {
           errorMessage = `Sorry, I encountered an error: ${error.message}. Please try again later.`
         }
       }
-      
+
       setChatHistory(prev => [...prev, { role: 'assistant', content: errorMessage }])
     } finally {
       setIsLoading(false)
@@ -165,7 +189,7 @@ export default function Home() {
               className="flex items-center space-x-3"
             >
               <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-              <Image
+                <Image
                   src="/dev-space-icon-transparent.png"
                   alt="DevSpace Platform"
                   width={600}
@@ -178,7 +202,7 @@ export default function Home() {
                 DevSpace
               </span>
             </motion.div>
-            
+
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
               <div className="flex items-center space-x-6">
@@ -194,7 +218,7 @@ export default function Home() {
                 <Link href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
                   Contact
                 </Link>
-      </div>
+              </div>
 
               <div className="flex items-center space-x-4">
                 <Button
@@ -206,7 +230,7 @@ export default function Home() {
                   <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                   <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                 </Button>
-                
+
                 <Link href="/auth/login">
                   <Button variant="ghost" size="sm">
                     Sign In
@@ -263,15 +287,15 @@ export default function Home() {
                     Grow
                   </span>
                 </motion.h1>
-                
+
                 <motion.p
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.4 }}
                   className="text-xl text-muted-foreground max-w-[1560px]"
                 >
-                  DevSpace is more than a platform — it's a movement. Built to bridge the gap between 
-                  student developers and the wider tech world, we help you share your projects, learn from others, 
+                  DevSpace is more than a platform — it's a movement. Built to bridge the gap between
+                  student developers and the wider tech world, we help you share your projects, learn from others,
                   and build together — no matter your level, age, or background.
                 </motion.p>
               </div>
@@ -325,50 +349,18 @@ export default function Home() {
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
-              className="relative"
+              className=""
             >
-              <div className="relative">
+              <div className="justify-center items-center">
                 <Image
-                  src="/dev-space.png"
+                  src="/illustrations/Innovation-amico(1).png"
                   alt="DevSpace Platform"
                   width={600}
                   height={400}
                   className="rounded-2xl shadow-2xl"
                   priority
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent rounded-2xl"></div>
               </div>
-              
-              {/* Additional floating illustrations */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.8, delay: 1 }}
-                className="absolute -top-4 -right-4 w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center"
-              >
-                <Image
-                  src="/illustrations/Live_collaboration.png"
-                  alt="Collaboration"
-                  width={60}
-                  height={60}
-                  className="rounded-full"
-                />
-              </motion.div>
-              
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.8, delay: 1.2 }}
-                className="absolute -bottom-4 -left-4 w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center"
-              >
-                <Image
-                  src="/illustrations/Telecommuting.png"
-                  alt="Remote Work"
-                  width={50}
-                  height={50}
-                  className="rounded-full"
-                />
-              </motion.div>
             </motion.div>
           </div>
         </div>
@@ -390,8 +382,8 @@ export default function Home() {
               </span>
             </h2>
             <p className="text-xl text-muted-foreground max-w-[1560px] mx-auto">
-              DevSpace started as an idea on campus — a way to connect talented but isolated developers. 
-              We saw brilliant coders who were too shy or too uncertain to collaborate because of age gaps, 
+              DevSpace started as an idea on campus — a way to connect talented but isolated developers.
+              We saw brilliant coders who were too shy or too uncertain to collaborate because of age gaps,
               level differences, or simple distance.
             </p>
           </motion.div>
@@ -417,8 +409,8 @@ export default function Home() {
                   </div>
                 </div>
                 <p className="text-muted-foreground text-lg mb-8">
-                  On many campuses, great developers work in silence. They build projects alone, 
-                  rarely meeting others who could teach, learn, or build with them. Sometimes it's 
+                  On many campuses, great developers work in silence. They build projects alone,
+                  rarely meeting others who could teach, learn, or build with them. Sometimes it's
                   because of level differences. Sometimes it's age. Sometimes it's just not knowing where to start.
                 </p>
 
@@ -469,8 +461,8 @@ export default function Home() {
                   </div>
                 </div>
                 <p className="text-muted-foreground text-lg mb-8">
-                  We make it easy for any developer — young or experienced — to find others, 
-                  form teams, and share their progress publicly. Collaboration should never depend 
+                  We make it easy for any developer — young or experienced — to find others,
+                  form teams, and share their progress publicly. Collaboration should never depend
                   on class level. It should depend on curiosity, effort, and passion for code.
                 </p>
 
@@ -520,51 +512,51 @@ export default function Home() {
               </span>
             </h2>
             <p className="text-xl text-muted-foreground max-w-[1560px] mx-auto">
-              DevSpace is a community of developers helping each other become better. 
+              DevSpace is a community of developers helping each other become better.
               We don't just share finished products — we share journeys.
             </p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
-              { 
-                icon: Code2, 
-                title: "Project Launchpad", 
+              {
+                icon: Code2,
+                title: "Project Launchpad",
                 description: "Share your projects, track your progress, and tell your story. Whether it's a hackathon idea or a major app, DevSpace gives it visibility and life.",
                 color: "text-blue-500",
                 bgColor: "bg-blue-500/10"
               },
-              { 
-                icon: Users2, 
-                title: "Collaboration Hubs", 
+              {
+                icon: Users2,
+                title: "Collaboration Hubs",
                 description: "Create or join teams. Work together, exchange feedback, and build bigger things faster.",
                 color: "text-green-500",
                 bgColor: "bg-green-500/10"
               },
-              { 
-                icon: Rocket, 
-                title: "Showcase & Portfolio", 
+              {
+                icon: Rocket,
+                title: "Showcase & Portfolio",
                 description: "Turn your DevSpace profile into a living portfolio — your achievements, your repositories, your journey, all in one place.",
                 color: "text-purple-500",
                 bgColor: "bg-purple-500/10"
               },
-              { 
-                icon: BookOpen, 
-                title: "Learning Through Building", 
+              {
+                icon: BookOpen,
+                title: "Learning Through Building",
                 description: "Get inspired by what others are building. Explore open projects, clone ideas, learn new stacks, and contribute to real work.",
                 color: "text-orange-500",
                 bgColor: "bg-orange-500/10"
               },
-              { 
-                icon: Shield, 
-                title: "Powered by GitHub & Firebase", 
+              {
+                icon: Shield,
+                title: "Powered by GitHub & Firebase",
                 description: "Authenticate securely, manage repos effortlessly, and collaborate in real-time with industry-standard tools.",
                 color: "text-indigo-500",
                 bgColor: "bg-indigo-500/10"
               },
-              { 
-                icon: Globe2, 
-                title: "Global Community", 
+              {
+                icon: Globe2,
+                title: "Global Community",
                 description: "Connect with developers across schools, regions, and countries. A shared environment where talent grows through visibility, not seniority.",
                 color: "text-teal-500",
                 bgColor: "bg-teal-500/10"
@@ -604,7 +596,7 @@ export default function Home() {
                   <span className="text-primary">Activity</span>
                 </h2>
                 <p className="text-xl text-muted-foreground mb-8">
-                  See how developers are actively collaborating, building projects, and growing together on DevSpace. 
+                  See how developers are actively collaborating, building projects, and growing together on DevSpace.
                   Join a community that's already making a difference.
                 </p>
               </div>
@@ -689,7 +681,7 @@ export default function Home() {
               <span className="text-primary">Grow Together</span>
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Discover insights, tutorials, and stories from the DevSpace community. 
+              Discover insights, tutorials, and stories from the DevSpace community.
               From beginner guides to advanced techniques, learn from developers who've been there.
             </p>
           </motion.div>
@@ -707,7 +699,7 @@ export default function Home() {
                   "From First Commit to First Job: A Developer's Journey Through DevSpace"
                 </p>
                 <p className="text-sm text-muted-foreground mb-6">
-                  Read how Sarah, a computer science student, used DevSpace to build her portfolio, 
+                  Read how Sarah, a computer science student, used DevSpace to build her portfolio,
                   connect with mentors, and land her dream job at a tech startup.
                 </p>
                 <div className="flex items-center justify-between">
@@ -775,17 +767,17 @@ export default function Home() {
                 >
                   <Code2 className="w-10 h-10 text-primary-foreground" />
                 </motion.div>
-                
+
                 <h3 className="text-3xl font-bold text-foreground mb-4">Built by King Jethro</h3>
                 <p className="text-xl text-muted-foreground mb-8 max-w-[1560px] mx-auto">
-                  A passionate developer who believes in the power of community and collaboration. 
+                  A passionate developer who believes in the power of community and collaboration.
                   Building tools that bring developers together and make the world a better place through code.
                 </p>
-                
+
                 <div className="flex justify-center gap-4">
-                  <a 
-                    href="https://github.com/kingjethro999" 
-                    target="_blank" 
+                  <a
+                    href="https://github.com/kingjethro999"
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
                   >
@@ -795,7 +787,7 @@ export default function Home() {
                   <span className="inline-flex items-center px-6 py-3 bg-muted text-muted-foreground rounded-lg">
                     @kingjethro999
                   </span>
-              </div>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -818,15 +810,15 @@ export default function Home() {
                   <span className="text-primary">Better</span>
                 </h2>
                 <p className="text-xl text-muted-foreground mb-8">
-                  DevSpace is a community of developers helping each other become better. 
+                  DevSpace is a community of developers helping each other become better.
                   We don't just share finished products — we share <strong>journeys.</strong>
                 </p>
                 <p className="text-lg text-muted-foreground mb-8">
-                  From your first commit to your product launch, DevSpace lets you tell your story: 
+                  From your first commit to your product launch, DevSpace lets you tell your story:
                   what you're building, what you're learning, and who's building with you.
                 </p>
                 <p className="text-lg text-muted-foreground mb-8">
-                  It's a place to find collaborators, mentors, and teammates who share your drive to create. 
+                  It's a place to find collaborators, mentors, and teammates who share your drive to create.
                   Because code isn't just about syntax — it's about the people who bring it to life.
                 </p>
               </div>
@@ -886,12 +878,12 @@ export default function Home() {
               <span className="text-primary">Built for Every Developer.</span>
             </h2>
             <p className="text-xl text-muted-foreground max-w-4xl mx-auto mb-8">
-              DevSpace began as a university initiative — but we're not stopping there. 
-              The mission is bigger: to connect developers across schools, regions, and countries. 
+              DevSpace began as a university initiative — but we're not stopping there.
+              The mission is bigger: to connect developers across schools, regions, and countries.
               A shared environment where talent grows through visibility, not seniority.
             </p>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-8">
-              Every developer deserves a platform to showcase what they can do. 
+              Every developer deserves a platform to showcase what they can do.
               DevSpace is that platform — open, inclusive, and built for the next generation of innovators.
             </p>
             <div className="bg-card border border-border rounded-2xl p-8 max-w-2xl mx-auto">
@@ -958,7 +950,7 @@ export default function Home() {
               <span className="text-primary">Action</span>
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Watch how developers are actively collaborating, building projects, and growing together on DevSpace. 
+              Watch how developers are actively collaborating, building projects, and growing together on DevSpace.
               Join a community that's already making a difference.
             </p>
           </motion.div>
@@ -1052,7 +1044,7 @@ export default function Home() {
                   <span className="text-primary">We're Here</span>
                 </h2>
                 <p className="text-xl text-muted-foreground mb-8">
-                  Have questions about DevSpace? Need help getting started? 
+                  Have questions about DevSpace? Need help getting started?
                   Our community and support team are here to help you succeed.
                 </p>
               </div>
@@ -1147,11 +1139,11 @@ export default function Home() {
               </span>
             </h2>
             <p className="text-xl text-muted-foreground mb-8 max-w-[1560px] mx-auto">
-              DevSpace is waiting for you — a place where your code meets opportunity. 
-              Connect with developers who think like you. Share your projects with people who understand your passion. 
+              DevSpace is waiting for you — a place where your code meets opportunity.
+              Connect with developers who think like you. Share your projects with people who understand your passion.
               Learn, teach, and grow — together.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/auth/signup">
                 <Button size="lg" className="px-8 py-4 text-lg">
@@ -1165,7 +1157,7 @@ export default function Home() {
                 </Button>
               </Link>
             </div>
-            
+
             <p className="text-muted-foreground text-sm mt-8">
               DevSpace — Empowering Developers to Build Without Boundaries.<br />
               © 2025 DevSpace. All rights reserved.
@@ -1191,37 +1183,44 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2 text-foreground">
               <Bot className="w-5 h-5" />
-              <span>AI Assistant</span>
+              <span>Glow AI by DevSpace</span>
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="flex-1 flex flex-col space-y-4">
             {/* Chat History */}
             <div className="flex-1 overflow-y-auto space-y-4 max-h-96">
               {chatHistory.length === 0 && (
                 <div className="text-center text-muted-foreground py-8">
                   <Bot className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                  <p>Ask me anything about DevSpace or development!</p>
+                  <p>Hi! I'm Glow AI by DevSpace. Ask me anything about development, coding, or DevSpace!</p>
                 </div>
               )}
-              
+
               {chatHistory.map((message, index) => (
                 <div
                   key={index}
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                      message.role === 'user'
+                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${message.role === 'user'
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted text-muted-foreground'
-                    }`}
+                      }`}
                   >
-                    {message.content}
+                    {message.role === 'assistant' ? (
+                      <div className="prose prose-sm max-w-none prose-headings:text-current prose-p:text-current prose-strong:text-current prose-code:text-current prose-pre:text-current">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      message.content
+                    )}
                   </div>
                 </div>
               ))}
-              
+
               {isLoading && (
                 <div className="flex justify-start">
                   <div className="bg-muted text-muted-foreground px-4 py-2 rounded-lg">
@@ -1241,7 +1240,7 @@ export default function Home() {
                 value={chatMessage}
                 onChange={(e) => setChatMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleAiChat(chatMessage)}
-                placeholder="Ask about DevSpace..."
+                placeholder="Ask Glow AI anything..."
                 className="flex-1"
                 disabled={isLoading}
               />

@@ -10,6 +10,9 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
+import { UniversalNav } from "@/components/universal-nav"
+import { Textarea } from "@/components/ui/textarea"
+import { uploadImage, uploadVideo } from "@/lib/cloudinary-utils"
 
 const CATEGORIES = ["General", "Help", "Showcase", "Discussion", "Question", "Feedback"]
 
@@ -22,11 +25,22 @@ export default function NewDiscussionPage() {
   const [tags, setTags] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const [mediaFiles, setMediaFiles] = useState<File[]>([])
+  const [mediaPreviews, setMediaPreviews] = useState<{ type: 'image'|'video'; url: string }[]>([])
+  const [uploadingMedia, setUploadingMedia] = useState(false)
 
   if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>
   if (!user) {
     router.push("/auth/login")
     return null
+  }
+
+  const onSelectMedia = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+    setMediaFiles(files)
+    const previews = files.map((f) => ({ type: f.type.startsWith('video') ? ('video' as const) : ('image' as const), url: URL.createObjectURL(f) }))
+    setMediaPreviews(previews)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,12 +58,26 @@ export default function NewDiscussionPage() {
     }
 
     setSaving(true)
-
+    setUploadingMedia(true)
     try {
       const tagArray = tags
         .split(",")
         .map((tag) => tag.trim())
         .filter((tag) => tag.length > 0)
+
+      // Upload media if any
+      const uploadedMedia: { type: 'image'|'video'; url: string }[] = []
+      for (const file of mediaFiles) {
+        try {
+          if (file.type.startsWith('video')) {
+            const res = await uploadVideo(file)
+            uploadedMedia.push({ type: 'video', url: res.secure_url })
+          } else {
+            const res = await uploadImage(file)
+            uploadedMedia.push({ type: 'image', url: res.secure_url })
+          }
+        } catch {}
+      }
 
       const docRef = await addDoc(collection(db, "discussions"), {
         creator_id: user.uid,
@@ -57,6 +85,7 @@ export default function NewDiscussionPage() {
         content,
         category,
         tags: tagArray,
+        media: uploadedMedia, // optional media
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
         view_count: 0,
@@ -75,26 +104,16 @@ export default function NewDiscussionPage() {
     } catch (err: any) {
       setError(err.message || "Failed to create discussion")
     } finally {
+      setUploadingMedia(false)
       setSaving(false)
     }
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/feed" className="text-2xl font-bold text-primary">
-            Dev Space
-          </Link>
-          <div className="flex gap-4">
-            <Link href="/discussions">
-              <Button variant="ghost">Discussions</Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <UniversalNav />
 
-      <main className="max-w-2xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Start a Discussion</h1>
           <p className="text-muted-foreground">Share your thoughts and engage with the community</p>
@@ -135,13 +154,12 @@ export default function NewDiscussionPage() {
 
           <div>
             <label className="block text-sm font-medium mb-2">Content</label>
-            <textarea
+            <Textarea
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={e => setContent(e.target.value)}
               placeholder="Share your thoughts, ask questions, or provide feedback..."
               className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               rows={8}
-              required
             />
           </div>
 
@@ -153,6 +171,34 @@ export default function NewDiscussionPage() {
               onChange={(e) => setTags(e.target.value)}
               placeholder="react, javascript, help"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Attach media (optional)</label>
+            <input
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              onChange={onSelectMedia}
+              className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+            />
+            {mediaPreviews.length > 0 && (
+              <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-3">
+                {mediaPreviews.map((m, idx) => (
+                  <div key={idx} className="relative aspect-video overflow-hidden rounded border">
+                    {m.type === 'image' ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={m.url} alt="preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <video src={m.url} className="w-full h-full object-cover" muted controls />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {uploadingMedia && (
+              <p className="text-xs text-muted-foreground mt-2">Uploading media...</p>
+            )}
           </div>
 
           <div className="flex gap-4">

@@ -4,12 +4,16 @@ import { useAuth } from "@/lib/auth-context"
 import { useRouter, useParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { db } from "@/lib/firebase"
-import { doc, getDoc, collection, query, where, onSnapshot, orderBy } from "firebase/firestore"
+import { doc, getDoc, collection, query, where, onSnapshot, orderBy, getDocs, limit as fbLimit, deleteDoc, addDoc, serverTimestamp } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
-import { Users, Code, Github } from "lucide-react"
+import { Users, Code, Github, BookOpen, Share2, Copy, Edit, Trash2 } from "lucide-react"
 import { getGitHubRepoStats } from "@/lib/github-utils"
+import { UniversalNav } from "@/components/universal-nav"
+import { ShareToChatDialog } from "@/components/share-to-chat-dialog"
+import { EmojiReactions } from "@/components/emoji-reactions"
+import { TechBadgeList } from "@/components/tech-badge-list"
 
 interface Project {
   id: string
@@ -22,6 +26,8 @@ interface Project {
   visibility: "public" | "private"
   created_at: any
   githubRepoId?: string
+  hasJourney?: boolean
+  collaboration_type: "authorized" | "open"
 }
 
 interface GitHubStats {
@@ -59,6 +65,24 @@ export default function ProjectDetailPage() {
   const [projectLoading, setProjectLoading] = useState(true)
   const [tasks, setTasks] = useState<Task[]>([])
   const [githubStats, setGithubStats] = useState<GitHubStats | null>(null)
+  const [hasJourney, setHasJourney] = useState<boolean>(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareText, setShareText] = useState("")
+  const [isCollaborator, setIsCollaborator] = useState(false)
+
+  const handleShare = () => {
+    const url = typeof window !== 'undefined' ? `${window.location.origin}/projects/${projectId}` : `/projects/${projectId}`
+    setShareText(`Check out this project: ${url}`)
+    setShareOpen(true)
+  }
+  const handleCopy = () => {
+    const url = typeof window !== 'undefined' ? `${window.location.origin}/projects/${projectId}` : `/projects/${projectId}`
+    navigator.clipboard.writeText(url)
+  }
+  const handleDeleteProject = async () => {
+    await deleteDoc(doc(db, "projects", projectId))
+    router.push("/projects")
+  }
 
   useEffect(() => {
     if (!loading && !user) {
@@ -92,6 +116,18 @@ export default function ProjectDetailPage() {
       fetchProject()
     }
   }, [user, projectId])
+
+  useEffect(() => {
+    if (!user || !projectId) return
+    const qy = query(collection(db, "collaborations"), where("project_id", "==", projectId), where("user_id", "==", user.uid))
+    getDocs(qy).then((snap) => setIsCollaborator(!snap.empty)).catch(() => setIsCollaborator(false))
+  }, [user, projectId])
+
+  useEffect(() => {
+    if (project?.hasJourney) {
+      setHasJourney(true)
+    }
+  }, [project])
 
   useEffect(() => {
     const fetchGitHubStats = async () => {
@@ -155,6 +191,17 @@ export default function ProjectDetailPage() {
   }
 
   const isOwner = user.uid === project.owner_id
+  const canContribute = isOwner || isCollaborator || project.collaboration_type === 'open'
+
+  const requestToCollaborate = async () => {
+    if (!user) return
+    await addDoc(collection(db, 'collaboration_requests'), {
+      project_id: projectId,
+      requester_id: user.uid,
+      created_at: serverTimestamp(),
+      status: 'pending',
+    })
+  }
 
   const todoTasks = tasks.filter((t) => t.status === "todo")
   const inProgressTasks = tasks.filter((t) => t.status === "in-progress")
@@ -162,23 +209,9 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/feed" className="text-2xl font-bold text-primary">
-            Dev Space
-          </Link>
-          <div className="flex gap-4">
-            <Link href="/feed">
-              <Button variant="ghost">Feed</Button>
-            </Link>
-            <Link href="/projects">
-              <Button variant="ghost">Projects</Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <UniversalNav />
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8">
         <Link href="/projects" className="text-primary hover:underline mb-6 inline-block">
           Back to Projects
         </Link>
@@ -195,9 +228,16 @@ export default function ProjectDetailPage() {
             </div>
             {isOwner && (
               <div className="flex gap-2">
-                <Link href={`/projects/${projectId}/edit`}>
-                  <Button>Edit Project</Button>
-                </Link>
+                <Button variant="ghost" size="icon" onClick={handleShare}><Share2 className="w-4 h-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={handleCopy}><Copy className="w-4 h-4" /></Button>
+                {isOwner && (
+                  <>
+                    <Link href={`/projects/${projectId}/edit`}>
+                      <Button variant="ghost" size="icon"><Edit className="w-4 h-4" /></Button>
+                    </Link>
+                    <Button variant="ghost" size="icon" onClick={handleDeleteProject}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -206,13 +246,8 @@ export default function ProjectDetailPage() {
 
           <div>
             <h3 className="font-bold mb-3">Technology Stack</h3>
-            <div className="flex flex-wrap gap-2">
-              {project.tech_stack.map((tech) => (
-                <span key={tech} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
-                  {tech}
-                </span>
-              ))}
-            </div>
+            <TechBadgeList items={project.tech_stack} />
+            <EmojiReactions parentId={projectId} collectionName="projects" />
           </div>
 
           {githubStats && (
@@ -257,6 +292,22 @@ export default function ProjectDetailPage() {
                 Code Reviews
               </Button>
             </Link>
+            {hasJourney && (
+              <Link href={`/projects/${projectId}/journey`}>
+                <Button variant="outline" className="bg-transparent gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  Project Journey
+                </Button>
+              </Link>
+            )}
+            {!isOwner && project.collaboration_type === 'authorized' && !isCollaborator && (
+              <Button variant="outline" className="bg-transparent" onClick={requestToCollaborate}>
+                Request to Collaborate
+              </Button>
+            )}
+            {project.collaboration_type === 'open' && !isOwner && (
+              <span className="text-xs text-muted-foreground">Open collaboration enabled</span>
+            )}
             {isOwner && (
               <Link href={`/projects/${projectId}/collaborators`}>
                 <Button variant="outline" className="bg-transparent gap-2">
@@ -332,6 +383,7 @@ export default function ProjectDetailPage() {
             </TabsContent>
           </Tabs>
         </div>
+        <ShareToChatDialog open={shareOpen} onOpenChange={setShareOpen} initialText={shareText} />
       </main>
     </div>
   )

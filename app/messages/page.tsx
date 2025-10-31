@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { MessageSquare, Search, Plus } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { UniversalNav } from "@/components/universal-nav"
 
 interface Conversation {
   id: string
@@ -71,7 +72,9 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto py-8 px-4">
+    <div className="min-h-screen bg-background">
+      <UniversalNav />
+      <div className="max-w-7xl mx-auto py-8 px-4">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold">Messages</h1>
@@ -112,9 +115,9 @@ export default function MessagesPage() {
       ) : filteredConversations.length === 0 ? (
         <Card className="p-12 text-center">
           <MessageSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-semibold mb-2">No conversations yet</h3>
-          <p className="text-muted-foreground mb-4">Start a conversation with other developers</p>
-          <Button asChild>
+          <h3 className="font-semibold mb-2 text-base md:text-lg">No conversations yet</h3>
+          <p className="text-muted-foreground mb-4 text-sm md:text-base">Start a conversation with other developers.</p>
+          <Button asChild size="sm" className="mt-2">
             <Link href="/messages/new">Start Messaging</Link>
           </Button>
         </Card>
@@ -155,6 +158,7 @@ export default function MessagesPage() {
           })}
         </div>
       )}
+      </div>
     </div>
   )
 }

@@ -326,7 +326,7 @@ export async function createNotification(userId: string, type: Notification['typ
         //   username: userEmail,
         //   notificationType: type,
         //   message: `${title}: ${message}`,
-        //   actionLink: relatedId ? `https://dev-space.vercel.app/posts/${relatedId}` : undefined
+        //   actionLink: relatedId ? `https://the-dev-space.vercel.app/posts/${relatedId}` : undefined
         // })
       } catch (emailError) {
         console.error('Error sending email notification:', emailError)

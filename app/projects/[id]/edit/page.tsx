@@ -10,6 +10,9 @@ import { doc, getDoc, updateDoc } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
+import { UniversalNav } from "@/components/universal-nav"
+import { ProjectImageUploadButton } from "@/components/ProjectImageUploadButton"
+import { Briefcase } from "lucide-react"
 
 const TECH_OPTIONS = [
   "JavaScript",
@@ -49,6 +52,10 @@ export default function EditProjectPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [pageLoading, setPageLoading] = useState(true)
+  const [projectImageUrl, setProjectImageUrl] = useState<string>("")
+  const [projectImagePublicId, setProjectImagePublicId] = useState<string>("")
+  const [collaborationType, setCollaborationType] = useState<"solo" | "authorized" | "open">("solo")
+  const [syncGithubCollaborators, setSyncGithubCollaborators] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -72,6 +79,10 @@ export default function EditProjectPage() {
           setGithubUrl(data.github_url || "")
           setLiveUrl(data.live_url || "")
           setVisibility(data.visibility)
+          setProjectImageUrl(data.project_image_url || "")
+          setProjectImagePublicId(data.project_image_public_id || "")
+          setCollaborationType(data.collaboration_type || "solo")
+          setSyncGithubCollaborators(!!data.collaboration_sync_github)
         }
       } catch (error) {
         console.error("Error fetching project:", error)
@@ -116,6 +127,10 @@ export default function EditProjectPage() {
         github_url: githubUrl,
         live_url: liveUrl,
         visibility,
+        project_image_url: projectImageUrl || null,
+        project_image_public_id: projectImagePublicId || null,
+        collaboration_type: collaborationType,
+        collaboration_sync_github: collaborationType === "authorized" ? syncGithubCollaborators : false,
         updated_at: new Date(),
       })
 
@@ -129,15 +144,9 @@ export default function EditProjectPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/feed" className="text-2xl font-bold text-primary">
-            Dev Space
-          </Link>
-        </div>
-      </nav>
+      <UniversalNav />
 
-      <main className="max-w-2xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8">
         <Link href={`/projects/${projectId}`} className="text-primary hover:underline mb-6 inline-block">
           Back to Project
         </Link>
@@ -195,6 +204,84 @@ export default function EditProjectPage() {
                   {tech}
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Project Image</label>
+            <div className="flex items-center gap-4">
+              <div className="w-28 h-28 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden">
+                {projectImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={projectImageUrl} alt="Project" className="w-full h-full object-cover" />
+                ) : (
+                  <Briefcase className="w-8 h-8 text-muted-foreground" />
+                )}
+              </div>
+              <ProjectImageUploadButton onUploaded={({ url, publicId }) => { setProjectImageUrl(url); setProjectImagePublicId(publicId); }}>
+                Upload (1:1 crop)
+              </ProjectImageUploadButton>
+              {projectImageUrl && (
+                <Button type="button" variant="ghost" onClick={() => { setProjectImageUrl(""); setProjectImagePublicId("") }}>Remove</Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">Users crop manually with a 1:1 ratio in the upload dialog.</p>
+          </div>
+
+          <div className="bg-muted/50 border border-border rounded-lg p-4">
+            <label className="block text-sm font-medium mb-2">Collaboration</label>
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  value="solo"
+                  checked={collaborationType === "solo"}
+                  onChange={(e) => setCollaborationType(e.target.value as any)}
+                />
+                <div>
+                  <span className="font-medium">Solo (default)</span>
+                  <p className="text-xs text-muted-foreground">Only you can contribute.</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  value="authorized"
+                  checked={collaborationType === "authorized"}
+                  onChange={(e) => setCollaborationType(e.target.value as any)}
+                />
+                <div>
+                  <span className="font-medium">Authorized Collaboration</span>
+                  <p className="text-xs text-muted-foreground">Only approved collaborators can contribute.</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  value="open"
+                  checked={collaborationType === "open"}
+                  onChange={(e) => setCollaborationType(e.target.value as any)}
+                />
+                <div>
+                  <span className="font-medium">Open Collaboration</span>
+                  <p className="text-xs text-muted-foreground">Any user can contribute.</p>
+                </div>
+              </label>
+
+              {collaborationType === "authorized" && (
+                <label className="flex items-start gap-3 cursor-pointer mt-2">
+                  <input
+                    type="checkbox"
+                    checked={syncGithubCollaborators}
+                    onChange={(e) => setSyncGithubCollaborators(e.target.checked)}
+                    className="mt-1"
+                  />
+                  <div>
+                    <span className="block text-sm font-medium mb-1">Sync from GitHub collaborators/team</span>
+                    <span className="block text-xs text-muted-foreground">Enable to sync repo collaborators from GitHub.</span>
+                  </div>
+                </label>
+              )}
             </div>
           </div>
 

@@ -2,14 +2,21 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { db } from "@/lib/firebase"
-import { collection, addDoc, serverTimestamp } from "firebase/firestore"
+import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { RepositorySelector } from "@/components/repository-selector"
 import Link from "next/link"
+import { Github, ExternalLink, Star, GitFork, Eye, Lock, Globe, AlertCircle, Briefcase } from "lucide-react"
+import { motion } from "framer-motion"
+import { UniversalNav } from "@/components/universal-nav"
+import { ProjectImageUploadButton } from "@/components/ProjectImageUploadButton"
 
 const TECH_OPTIONS = [
   "JavaScript",
@@ -34,22 +41,143 @@ const TECH_OPTIONS = [
   "REST API",
 ]
 
+interface Repository {
+  id: number
+  name: string
+  fullName: string
+  description: string
+  language: string
+  stars: number
+  forks: number
+  watchers: number
+  private: boolean
+  url: string
+  cloneUrl: string
+  defaultBranch: string
+  updatedAt: string
+  createdAt: string
+}
+
 export default function NewProjectPage() {
-  const { user, loading } = useAuth()
+  const { user, loading, signInWithGitHub } = useAuth()
   const router = useRouter()
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [selectedTech, setSelectedTech] = useState<string[]>([])
-  const [githubUrl, setGithubUrl] = useState("")
   const [liveUrl, setLiveUrl] = useState("")
   const [visibility, setVisibility] = useState<"public" | "private">("public")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const [githubConnected, setGithubConnected] = useState(false)
+  const [checkingGithub, setCheckingGithub] = useState(true)
+  const [selectedRepository, setSelectedRepository] = useState<Repository | null>(null)
+  const [showRepositorySelector, setShowRepositorySelector] = useState(false)
+  const [enableJourney, setEnableJourney] = useState(false)
+  const [projectImageUrl, setProjectImageUrl] = useState<string>("")
+  const [projectImagePublicId, setProjectImagePublicId] = useState<string>("")
+  const [collaborationType, setCollaborationType] = useState<"solo" | "authorized" | "open">("solo")
+  const [syncGithubCollaborators, setSyncGithubCollaborators] = useState(false)
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  useEffect(() => {
+    const checkGithubConnection = async () => {
+      if (!user) return
+      
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid))
+        if (userDoc.exists()) {
+          const userData = userDoc.data()
+          setGithubConnected(!!userData.githubConnected && !!userData.githubAccessToken)
+        }
+      } catch (error) {
+        console.error('Error checking GitHub connection:', error)
+      } finally {
+        setCheckingGithub(false)
+      }
+    }
+
+    checkGithubConnection()
+  }, [user])
+
+  if (loading || checkingGithub) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!user) {
     router.push("/auth/login")
     return null
+  }
+
+  // Show GitHub connection required for Google users
+  if (!githubConnected) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md"
+        >
+          <Card className="bg-card border-border">
+            <CardHeader className="text-center">
+              <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-lg font-bold text-foreground">
+                GitHub Required
+              </CardTitle>
+              <CardDescription className="text-base text-muted-foreground">
+                To create projects on DevSpace, you need to connect your GitHub account. 
+                This allows you to select repositories directly and showcase your work seamlessly.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <h4 className="font-semibold text-foreground">What you'll get:</h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Select repositories from your GitHub account</li>
+                  <li>• Automatic project details and stats</li>
+                  <li>• Real-time repository updates</li>
+                  <li>• Seamless integration with your workflow</li>
+                </ul>
+              </div>
+
+              <div className="flex space-x-2">
+                <Button 
+                  onClick={async () => {
+                    try {
+                      await signInWithGitHub()
+                      // Refresh the page to update GitHub connection status
+                      window.location.reload()
+                    } catch (error) {
+                      console.error('GitHub connection failed:', error)
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  <Github className="w-4 h-4 mr-2" />
+                  Connect GitHub
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => router.push('/discover')}
+                  className="flex-1"
+                >
+                  Go to Feed
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    )
   }
 
   const toggleTech = (tech: string) => {
@@ -65,19 +193,56 @@ export default function NewProjectPage() {
       return
     }
 
+    if (!selectedRepository) {
+      setError("Please select a GitHub repository")
+      return
+    }
+
     setSaving(true)
 
     try {
-      await addDoc(collection(db, "projects"), {
+      const projectData = {
         owner_id: user.uid,
         title,
         description,
         tech_stack: selectedTech,
-        github_url: githubUrl,
+        github_url: selectedRepository.url,
+        github_repo_id: selectedRepository.id,
+        github_repo_name: selectedRepository.name,
+        github_repo_full_name: selectedRepository.fullName,
+        github_repo_description: selectedRepository.description,
+        github_repo_language: selectedRepository.language,
+        github_repo_stars: selectedRepository.stars,
+        github_repo_forks: selectedRepository.forks,
+        github_repo_watchers: selectedRepository.watchers,
+        github_repo_private: selectedRepository.private,
+        github_repo_default_branch: selectedRepository.defaultBranch,
         live_url: liveUrl,
         visibility,
+        hasJourney: enableJourney,
+        project_image_url: projectImageUrl || null,
+        project_image_public_id: projectImagePublicId || null,
+        collaboration_type: collaborationType,
+        collaboration_sync_github: collaborationType === "authorized" ? syncGithubCollaborators : false,
         created_at: serverTimestamp(),
         updated_at: serverTimestamp(),
+      }
+
+      const projectRef = await addDoc(collection(db, "projects"), projectData)
+
+      // Link GitHub repository
+      await addDoc(collection(db, "github_repos"), {
+        projectId: projectRef.id,
+        githubUrl: selectedRepository.url,
+        repoName: selectedRepository.name,
+        owner: selectedRepository.fullName.split('/')[0],
+        stars: selectedRepository.stars,
+        forks: selectedRepository.forks,
+        watchers: selectedRepository.watchers,
+        language: selectedRepository.language,
+        description: selectedRepository.description,
+        lastSynced: new Date(),
+        createdAt: new Date(),
       })
 
       // Add activity
@@ -98,23 +263,9 @@ export default function NewProjectPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/feed" className="text-2xl font-bold text-primary">
-            Dev Space
-          </Link>
-          <div className="flex gap-4">
-            <Link href="/feed">
-              <Button variant="ghost">Feed</Button>
-            </Link>
-            <Link href="/projects">
-              <Button variant="ghost">Projects</Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <UniversalNav />
 
-      <main className="max-w-2xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Create New Project</h1>
           <p className="text-muted-foreground">Share your amazing work with the community</p>
@@ -150,13 +301,81 @@ export default function NewProjectPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">GitHub URL</label>
-            <Input
-              type="url"
-              value={githubUrl}
-              onChange={(e) => setGithubUrl(e.target.value)}
-              placeholder="https://github.com/username/project"
-            />
+            <label className="block text-sm font-medium mb-2">GitHub Repository</label>
+            {selectedRepository ? (
+              <Card className="border-primary/50 bg-primary/5">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <h3 className="font-semibold text-foreground truncate">
+                          {selectedRepository.name}
+                        </h3>
+                        {selectedRepository.private ? (
+                          <Lock className="w-4 h-4 text-muted-foreground" />
+                        ) : (
+                          <Globe className="w-4 h-4 text-muted-foreground" />
+                        )}
+                        <Badge variant="secondary" className="text-xs">
+                          {selectedRepository.language}
+                        </Badge>
+                      </div>
+                      
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {selectedRepository.description || 'No description available'}
+                      </p>
+
+                      <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                        <div className="flex items-center space-x-1">
+                          <Star className="w-3 h-3" />
+                          <span>{selectedRepository.stars}</span>
+                        </div>
+                        
+                        <div className="flex items-center space-x-1">
+                          <GitFork className="w-3 h-3" />
+                          <span>{selectedRepository.forks}</span>
+                        </div>
+                        
+                        <div className="flex items-center space-x-1">
+                          <Eye className="w-3 h-3" />
+                          <span>{selectedRepository.watchers}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end space-y-2 ml-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedRepository(null)}
+                      >
+                        Change
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => window.open(selectedRepository.url, '_blank')}
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowRepositorySelector(true)}
+                className="w-full h-20 border-dashed border-2 border-border hover:border-primary/50 hover:bg-primary/5"
+              >
+                <div className="text-center">
+                  <Github className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm font-medium">Select GitHub Repository</p>
+                  <p className="text-xs text-muted-foreground">Choose from your repositories</p>
+                </div>
+              </Button>
+            )}
           </div>
 
           <div>
@@ -167,6 +386,27 @@ export default function NewProjectPage() {
               onChange={(e) => setLiveUrl(e.target.value)}
               placeholder="https://myproject.com"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Project Image</label>
+            <div className="flex items-center gap-4">
+              <div className="w-28 h-28 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden">
+                {projectImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={projectImageUrl} alt="Project" className="w-full h-full object-cover" />
+                ) : (
+                  <Briefcase className="w-8 h-8 text-muted-foreground" />
+                )}
+              </div>
+              <ProjectImageUploadButton onUploaded={({ url, publicId }) => { setProjectImageUrl(url); setProjectImagePublicId(publicId); }}>
+                Upload (1:1 crop)
+              </ProjectImageUploadButton>
+              {projectImageUrl && (
+                <Button type="button" variant="ghost" onClick={() => { setProjectImageUrl(""); setProjectImagePublicId("") }}>Remove</Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">Users crop manually with a 1:1 ratio in the upload dialog.</p>
           </div>
 
           <div>
@@ -213,6 +453,80 @@ export default function NewProjectPage() {
             </div>
           </div>
 
+          <div className="bg-muted/50 border border-border rounded-lg p-4">
+            <label className="block text-sm font-medium mb-2">Collaboration</label>
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  value="solo"
+                  checked={collaborationType === "solo"}
+                  onChange={(e) => setCollaborationType(e.target.value as any)}
+                />
+                <div>
+                  <span className="font-medium">Solo (default)</span>
+                  <p className="text-xs text-muted-foreground">Only you can contribute.</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  value="authorized"
+                  checked={collaborationType === "authorized"}
+                  onChange={(e) => setCollaborationType(e.target.value as any)}
+                />
+                <div>
+                  <span className="font-medium">Authorized Collaboration</span>
+                  <p className="text-xs text-muted-foreground">Only approved collaborators can contribute.</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  value="open"
+                  checked={collaborationType === "open"}
+                  onChange={(e) => setCollaborationType(e.target.value as any)}
+                />
+                <div>
+                  <span className="font-medium">Open Collaboration</span>
+                  <p className="text-xs text-muted-foreground">Any user can contribute.</p>
+                </div>
+              </label>
+
+              {collaborationType === "authorized" && (
+                <label className="flex items-start gap-3 cursor-pointer mt-2">
+                  <input
+                    type="checkbox"
+                    checked={syncGithubCollaborators}
+                    onChange={(e) => setSyncGithubCollaborators(e.target.checked)}
+                    className="mt-1"
+                  />
+                  <div>
+                    <span className="block text-sm font-medium mb-1">Sync from GitHub collaborators/team</span>
+                    <span className="block text-xs text-muted-foreground">When enabled, we can sync repo collaborators later from project settings.</span>
+                  </div>
+                </label>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-muted/50 border border-border rounded-lg p-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={enableJourney}
+                onChange={(e) => setEnableJourney(e.target.checked)}
+                className="mt-1"
+              />
+              <div>
+                <span className="block text-sm font-medium mb-1">Enable Project Journey</span>
+                <span className="block text-xs text-muted-foreground">
+                  Track and document your development journey as you build this project. This is perfect for projects you're starting from scratch or want to document your progress.
+                </span>
+              </div>
+            </label>
+          </div>
+
           <div className="flex gap-4">
             <Button type="submit" disabled={saving} className="flex-1">
               {saving ? "Creating..." : "Create Project"}
@@ -224,6 +538,14 @@ export default function NewProjectPage() {
             </Link>
           </div>
         </form>
+
+        {/* Repository Selector Modal */}
+        <RepositorySelector
+          isOpen={showRepositorySelector}
+          onClose={() => setShowRepositorySelector(false)}
+          onSelect={setSelectedRepository}
+          selectedRepository={selectedRepository}
+        />
       </main>
     </div>
   )

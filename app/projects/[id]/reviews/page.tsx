@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Code, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
+import { UniversalNav } from "@/components/universal-nav"
 
 interface CodeReview {
   id: string
@@ -91,7 +92,9 @@ export default function CodeReviewsPage() {
   const isProjectOwner = user.uid === project?.owner_id
 
   return (
-    <div className="container max-w-4xl mx-auto py-8 px-4">
+    <div className="min-h-screen bg-background">
+      <UniversalNav />
+      <div className="max-w-7xl mx-auto py-8 px-4">
       <Button variant="ghost" asChild className="mb-6">
         <Link href={`/projects/${projectId}`}>
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -168,6 +171,7 @@ export default function CodeReviewsPage() {
           })}
         </div>
       )}
+      </div>
     </div>
   )
 }

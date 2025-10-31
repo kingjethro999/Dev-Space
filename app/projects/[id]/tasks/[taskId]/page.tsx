@@ -25,6 +25,10 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useParams } from "next/navigation"
+import { UniversalNav } from "@/components/universal-nav"
+import { ThreadedComments, ThreadedComment } from "@/components/ThreadedComments"
+import { deleteDoc } from "firebase/firestore"
+import { ShareToChatDialog } from "@/components/share-to-chat-dialog"
 
 interface Task {
   id: string
@@ -44,6 +48,7 @@ interface Comment {
   user_id: string
   content: string
   created_at: any
+  mentions?: { [username: string]: string } // Maps username -> userId
 }
 
 interface UserData {
@@ -60,10 +65,12 @@ export default function TaskDetailPage() {
 
   const [task, setTask] = useState<Task | null>(null)
   const [project, setProject] = useState<any>(null)
-  const [comments, setComments] = useState<Comment[]>([])
+  const [allComments, setAllComments] = useState<ThreadedComment[]>([])
   const [newComment, setNewComment] = useState("")
-  const [userData, setUserData] = useState<{ [key: string]: UserData }>({})
+  const [userMap, setUserMap] = useState<{ [key: string]: UserData }>({})
   const [loading, setLoading] = useState(true)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareText, setShareText] = useState("")
 
   useEffect(() => {
     const fetchData = async () => {
@@ -95,24 +102,17 @@ export default function TaskDetailPage() {
     const q = query(collection(db, "task_comments"), where("task_id", "==", taskId), orderBy("created_at", "asc"))
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const commentsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Comment[]
-      setComments(commentsData)
-
-      const userIds = [...new Set(commentsData.map((c) => c.user_id))]
-      const newUserData: { [key: string]: UserData } = { ...userData }
-
-      for (const userId of userIds) {
-        if (!newUserData[userId]) {
-          const userDoc = await getDoc(doc(db, "users", userId))
-          if (userDoc.exists()) {
-            newUserData[userId] = userDoc.data() as UserData
-          }
+      const commentsData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }) as ThreadedComment)
+      setAllComments(commentsData)
+      const userIds = [...new Set(commentsData.map(c => c.user_id))]
+      const map = { ...userMap }
+      for (const uid of userIds) {
+        if (!map[uid]) {
+          const uDoc = await getDoc(doc(db, "users", uid))
+          if (uDoc.exists()) map[uid] = uDoc.data() as UserData
         }
       }
-      setUserData(newUserData)
+      setUserMap(map)
     })
 
     return () => unsubscribe()
@@ -135,25 +135,27 @@ export default function TaskDetailPage() {
     setTask({ ...task, status: newStatus })
   }
 
-  const addComment = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!user || !newComment.trim() || !task) return
-
+  const addCommentThreaded = async (content: string, parentId?: string | null) => {
+    if (!user || !content.trim() || !task) return
     await addDoc(collection(db, "task_comments"), {
       task_id: taskId,
       user_id: user.uid,
-      content: newComment.trim(),
+      content: content.trim(),
       created_at: serverTimestamp(),
+      parent_id: parentId || null,
     })
-
-    await addDoc(collection(db, "activities"), {
-      user_id: user.uid,
-      action_type: "commented_on_task",
-      related_entity: task.title,
-      created_at: serverTimestamp(),
-    })
-
-    setNewComment("")
+    await addDoc(collection(db, "activities"), { user_id: user.uid, action_type: "commented_on_task", related_entity: task.title, created_at: serverTimestamp() })
+  }
+  const editCommentThreaded = async (commentId: string, newContent: string) => {
+    await updateDoc(doc(db, "task_comments", commentId), { content: newContent })
+  }
+  const deleteCommentThreaded = async (commentId: string) => {
+    await deleteDoc(doc(db, "task_comments", commentId))
+  }
+  const shareCommentThreaded = (commentId: string) => {
+    const url = typeof window !== 'undefined' ? `${window.location.origin}/projects/${projectId}/tasks/${taskId}#comment-${commentId}` : `/projects/${projectId}/tasks/${taskId}`
+    setShareText(`Check this comment: ${url}`)
+    setShareOpen(true)
   }
 
   if (loading) {
@@ -173,7 +175,9 @@ export default function TaskDetailPage() {
   const isProjectOwner = user?.uid === project.owner_id
 
   return (
-    <div className="container max-w-4xl mx-auto py-8 px-4">
+    <div className="min-h-screen bg-background">
+      <UniversalNav />
+      <div className="max-w-7xl mx-auto px-4 py-8">
       <Button variant="ghost" asChild className="mb-6">
         <Link href={`/projects/${projectId}`}>
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -226,46 +230,25 @@ export default function TaskDetailPage() {
 
       <Card className="p-8">
         <h2 className="text-xl font-bold mb-4">Comments</h2>
-
-        <form onSubmit={addComment} className="mb-6">
-          <Textarea
-            placeholder="Add a comment..."
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            className="mb-2"
-          />
-          <Button type="submit" disabled={!newComment.trim()}>
-            Post Comment
-          </Button>
+        <form onSubmit={(e) => { e.preventDefault(); addCommentThreaded(newComment); setNewComment(""); }} className="mb-6">
+          <Textarea value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Add a comment..." className="mb-2 w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground" rows={3} />
+          <Button type="submit" disabled={!newComment.trim()}>Post Comment</Button>
         </form>
-
-        <div className="space-y-4">
-          {comments.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">No comments yet</p>
-          ) : (
-            comments.map((comment) => {
-              const commentUser = userData[comment.user_id]
-              return (
-                <div key={comment.id} className="flex gap-3">
-                  <Avatar className="w-8 h-8">
-                    <AvatarImage src={commentUser?.avatar_url || "/placeholder.svg"} />
-                    <AvatarFallback>{commentUser?.username?.slice(0, 2).toUpperCase() || "U"}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-sm">{commentUser?.username}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {comment.created_at?.toDate?.()?.toLocaleDateString()}
-                      </span>
-                    </div>
-                    <p className="text-sm">{comment.content}</p>
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </div>
+        {/* Threaded comments render */}
+        <ThreadedComments
+          comments={allComments}
+          userMap={userMap}
+          currentUserId={user?.uid}
+          collectionName="task_comments"
+          addComment={addCommentThreaded}
+          editComment={editCommentThreaded}
+          deleteComment={deleteCommentThreaded}
+          shareComment={shareCommentThreaded}
+          canDeleteAny={user?.uid === project.owner_id}
+        />
       </Card>
+      <ShareToChatDialog open={shareOpen} onOpenChange={setShareOpen} initialText={shareText} />
+      </div>
     </div>
   )
 }

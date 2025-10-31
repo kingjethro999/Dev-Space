@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import Image from "next/image"
 import { Code2, MessageSquare, Users } from "lucide-react"
+import { UniversalNav } from "@/components/universal-nav"
+import { TechBadgeList } from "@/components/tech-badge-list"
 
 export default function SearchPage() {
   const { user, loading } = useAuth()
@@ -75,23 +77,9 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b border-border bg-card sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/feed" className="text-2xl font-bold text-primary">
-            Dev Space
-          </Link>
-          <div className="flex gap-4">
-            <Link href="/feed">
-              <Button variant="ghost">Feed</Button>
-            </Link>
-            <Link href="/discover">
-              <Button variant="ghost">Discover</Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <UniversalNav />
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -107,15 +95,6 @@ export default function SearchPage() {
                 <Button type="submit">Search</Button>
               </form>
             </div>
-            <div className="hidden lg:block">
-              <Image
-                src="/illustrations/online-world.png"
-                alt="Search Illustration"
-                width={200}
-                height={150}
-                className="rounded-lg"
-              />
-            </div>
           </div>
         </div>
 
@@ -123,7 +102,7 @@ export default function SearchPage() {
           <div className="text-center py-12">
             <div className="inline-block">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-              <p className="text-muted-foreground mt-4">Searching...</p>
+              <p className="text-muted-foreground mt-4 text-base md:text-lg">Searching...</p>
             </div>
           </div>
         ) : !hasSearched ? (
@@ -135,7 +114,7 @@ export default function SearchPage() {
               height={200}
               className="mx-auto mb-4 rounded-lg"
             />
-            <p>Enter a search query to find projects, discussions, and developers</p>
+            <p className="text-base md:text-lg">Enter a search query to find projects, discussions, and developers.</p>
           </div>
         ) : results.total === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
@@ -146,98 +125,376 @@ export default function SearchPage() {
               height={200}
               className="mx-auto mb-4 rounded-lg"
             />
-            <p>No results found for "{searchQuery}"</p>
+            <p className="text-base md:text-lg">No results found for "{searchQuery}".</p>
           </div>
         ) : (
           <div className="space-y-8">
-            {results.projects.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Code2 className="w-5 h-5 text-blue-400" />
-                  <h2 className="text-2xl font-bold text-foreground">Projects ({results.projects.length})</h2>
-                </div>
-                <div className="space-y-4">
-                  {results.projects.map((project) => (
-                    <Link key={project.id} href={`/projects/${project.id}`}>
-                      <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 transition-all cursor-pointer">
-                        <h3 className="text-lg font-bold text-white hover:text-blue-400 mb-2">{project.title}</h3>
-                        <p className="text-sm text-slate-300 mb-3 line-clamp-2">{project.description}</p>
-                        <div className="flex flex-wrap gap-2">
-                          {project.metadata.tech_stack?.slice(0, 4).map((tech: string) => (
-                            <span key={tech} className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded">
-                              {tech}
-                            </span>
-                          ))}
-                        </div>
+            {/* Detect primary category from search query */}
+            {(() => {
+              const queryLower = searchQuery.toLowerCase()
+              const isDeveloperSearch = /developer|user|profile|person/i.test(queryLower)
+              const isProjectSearch = /project|repo|repository|github/i.test(queryLower)
+              const isDiscussionSearch = /discussion|forum|post|question|thread/i.test(queryLower)
+              
+              const primaryCategory = isDeveloperSearch ? 'users' : isProjectSearch ? 'projects' : isDiscussionSearch ? 'discussions' : null
+              const otherCategories = {
+                projects: results.projects,
+                discussions: results.discussions,
+                users: results.users,
+              }
+              
+              // Show primary category first if detected
+              if (primaryCategory === 'users' && results.users.length > 0) {
+                return (
+                  <>
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <Users className="w-5 h-5 text-cyan-400" />
+                        <h2 className="text-2xl font-bold text-foreground">Developers ({results.users.length})</h2>
                       </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {results.discussions.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <MessageSquare className="w-5 h-5 text-purple-400" />
-                  <h2 className="text-2xl font-bold text-foreground">Discussions ({results.discussions.length})</h2>
-                </div>
-                <div className="space-y-4">
-                  {results.discussions.map((discussion) => (
-                    <Link key={discussion.id} href={`/discussions/${discussion.id}`}>
-                      <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-purple-500 hover:shadow-lg hover:shadow-purple-500/20 transition-all cursor-pointer">
-                        <div className="flex items-start justify-between mb-2">
-                          <h3 className="text-lg font-bold text-white hover:text-purple-400">{discussion.title}</h3>
-                          <span className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded">
-                            {discussion.metadata.category}
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-300 line-clamp-2">{discussion.description}</p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {results.users.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Users className="w-5 h-5 text-cyan-400" />
-                  <h2 className="text-2xl font-bold text-foreground">Developers ({results.users.length})</h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {results.users.map((user) => (
-                    <Link key={user.id} href={`/profile/${user.id}`}>
-                      <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-cyan-500 hover:shadow-lg hover:shadow-cyan-500/20 transition-all cursor-pointer">
-                        <div className="flex items-start gap-4">
-                          {user.metadata.avatar_url && (
-                            <img
-                              src={user.metadata.avatar_url || "/placeholder.svg"}
-                              alt={user.title}
-                              className="w-12 h-12 rounded-full"
-                            />
-                          )}
-                          <div className="flex-1">
-                            <h3 className="text-lg font-bold text-white hover:text-cyan-400">{user.title}</h3>
-                            <p className="text-sm text-slate-300 line-clamp-2">{user.description}</p>
-                            {user.metadata.skills && (
-                              <div className="flex flex-wrap gap-2 mt-3">
-                                {user.metadata.skills.slice(0, 3).map((skill: string) => (
-                                  <span key={skill} className="px-2 py-1 bg-cyan-500/20 text-cyan-300 text-xs rounded">
-                                    {skill}
-                                  </span>
-                                ))}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {results.users.map((user) => (
+                          <Link key={user.id} href={`/profile/${user.id}`}>
+                            <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-cyan-500 hover:shadow-lg hover:shadow-cyan-500/20 transition-all cursor-pointer">
+                              <div className="flex items-start gap-4">
+                                {user.metadata.avatar_url && (
+                                  <img
+                                    src={user.metadata.avatar_url || "/placeholder.svg"}
+                                    alt={user.title}
+                                    className="w-12 h-12 rounded-full"
+                                  />
+                                )}
+                                <div className="flex-1">
+                                  <h3 className="text-lg font-bold text-white hover:text-cyan-400">{user.title}</h3>
+                                  <p className="text-sm text-slate-300 line-clamp-2">{user.description}</p>
+                                  {user.metadata.skills && (
+                                    <TechBadgeList items={user.metadata.skills} max={10} />
+                                  )}
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        </div>
+                            </div>
+                          </Link>
+                        ))}
                       </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
+                    </div>
+                    
+                    {(results.projects.length > 0 || results.discussions.length > 0) && (
+                      <div>
+                        <h2 className="text-xl font-bold text-foreground mb-6">Search Results in Other Categories</h2>
+                        
+                        {results.projects.length > 0 && (
+                          <div className="mb-8">
+                            <div className="flex items-center gap-2 mb-4">
+                              <Code2 className="w-5 h-5 text-blue-400" />
+                              <h3 className="text-lg font-bold text-foreground">Projects ({results.projects.length})</h3>
+                            </div>
+                            <div className="space-y-4">
+                              {results.projects.map((project) => (
+                                <Link key={project.id} href={`/projects/${project.id}`}>
+                                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 transition-all cursor-pointer">
+                                    <h3 className="text-lg font-bold text-white hover:text-blue-400 mb-2">{project.title}</h3>
+                                    <p className="text-sm text-slate-300 mb-3 line-clamp-2">{project.description}</p>
+                                    {project.metadata.tech_stack && (
+                                      <TechBadgeList items={project.metadata.tech_stack} max={4} />
+                                    )}
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {results.discussions.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-4">
+                              <MessageSquare className="w-5 h-5 text-purple-400" />
+                              <h3 className="text-lg font-bold text-foreground">Discussions ({results.discussions.length})</h3>
+                            </div>
+                            <div className="space-y-4">
+                              {results.discussions.map((discussion) => (
+                                <Link key={discussion.id} href={`/discussions/${discussion.id}`}>
+                                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-purple-500 hover:shadow-lg hover:shadow-purple-500/20 transition-all cursor-pointer">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <h3 className="text-lg font-bold text-white hover:text-purple-400">{discussion.title}</h3>
+                                      <span className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded">
+                                        {discussion.metadata.category}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-slate-300 line-clamp-2">{discussion.description}</p>
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )
+              }
+              
+              if (primaryCategory === 'projects' && results.projects.length > 0) {
+                return (
+                  <>
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <Code2 className="w-5 h-5 text-blue-400" />
+                        <h2 className="text-2xl font-bold text-foreground">Projects ({results.projects.length})</h2>
+                      </div>
+                      <div className="space-y-4">
+                        {results.projects.map((project) => (
+                          <Link key={project.id} href={`/projects/${project.id}`}>
+                            <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 transition-all cursor-pointer">
+                              <h3 className="text-lg font-bold text-white hover:text-blue-400 mb-2">{project.title}</h3>
+                              <p className="text-sm text-slate-300 mb-3 line-clamp-2">{project.description}</p>
+                              {project.metadata.tech_stack && (
+                                <TechBadgeList items={project.metadata.tech_stack} max={4} />
+                              )}
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {(results.discussions.length > 0 || results.users.length > 0) && (
+                      <div>
+                        <h2 className="text-xl font-bold text-foreground mb-6">Search Results in Other Categories</h2>
+                        
+                        {results.users.length > 0 && (
+                          <div className="mb-8">
+                            <div className="flex items-center gap-2 mb-4">
+                              <Users className="w-5 h-5 text-cyan-400" />
+                              <h3 className="text-lg font-bold text-foreground">Developers ({results.users.length})</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {results.users.map((user) => (
+                                <Link key={user.id} href={`/profile/${user.id}`}>
+                                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-cyan-500 hover:shadow-lg hover:shadow-cyan-500/20 transition-all cursor-pointer">
+                                    <div className="flex items-start gap-4">
+                                      {user.metadata.avatar_url && (
+                                        <img
+                                          src={user.metadata.avatar_url || "/placeholder.svg"}
+                                          alt={user.title}
+                                          className="w-12 h-12 rounded-full"
+                                        />
+                                      )}
+                                      <div className="flex-1">
+                                        <h3 className="text-lg font-bold text-white hover:text-cyan-400">{user.title}</h3>
+                                        <p className="text-sm text-slate-300 line-clamp-2">{user.description}</p>
+                                        {user.metadata.skills && (
+                                          <TechBadgeList items={user.metadata.skills} max={10} />
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {results.discussions.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-4">
+                              <MessageSquare className="w-5 h-5 text-purple-400" />
+                              <h3 className="text-lg font-bold text-foreground">Discussions ({results.discussions.length})</h3>
+                            </div>
+                            <div className="space-y-4">
+                              {results.discussions.map((discussion) => (
+                                <Link key={discussion.id} href={`/discussions/${discussion.id}`}>
+                                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-purple-500 hover:shadow-lg hover:shadow-purple-500/20 transition-all cursor-pointer">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <h3 className="text-lg font-bold text-white hover:text-purple-400">{discussion.title}</h3>
+                                      <span className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded">
+                                        {discussion.metadata.category}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-slate-300 line-clamp-2">{discussion.description}</p>
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )
+              }
+              
+              if (primaryCategory === 'discussions' && results.discussions.length > 0) {
+                return (
+                  <>
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <MessageSquare className="w-5 h-5 text-purple-400" />
+                        <h2 className="text-2xl font-bold text-foreground">Discussions ({results.discussions.length})</h2>
+                      </div>
+                      <div className="space-y-4">
+                        {results.discussions.map((discussion) => (
+                          <Link key={discussion.id} href={`/discussions/${discussion.id}`}>
+                            <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-purple-500 hover:shadow-lg hover:shadow-purple-500/20 transition-all cursor-pointer">
+                              <div className="flex items-start justify-between mb-2">
+                                <h3 className="text-lg font-bold text-white hover:text-purple-400">{discussion.title}</h3>
+                                <span className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded">
+                                  {discussion.metadata.category}
+                                </span>
+                              </div>
+                              <p className="text-sm text-slate-300 line-clamp-2">{discussion.description}</p>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {(results.projects.length > 0 || results.users.length > 0) && (
+                      <div>
+                        <h2 className="text-xl font-bold text-foreground mb-6">Search Results in Other Categories</h2>
+                        
+                        {results.projects.length > 0 && (
+                          <div className="mb-8">
+                            <div className="flex items-center gap-2 mb-4">
+                              <Code2 className="w-5 h-5 text-blue-400" />
+                              <h3 className="text-lg font-bold text-foreground">Projects ({results.projects.length})</h3>
+                            </div>
+                            <div className="space-y-4">
+                              {results.projects.map((project) => (
+                                <Link key={project.id} href={`/projects/${project.id}`}>
+                                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 transition-all cursor-pointer">
+                                    <h3 className="text-lg font-bold text-white hover:text-blue-400 mb-2">{project.title}</h3>
+                                    <p className="text-sm text-slate-300 mb-3 line-clamp-2">{project.description}</p>
+                                    {project.metadata.tech_stack && (
+                                      <TechBadgeList items={project.metadata.tech_stack} max={4} />
+                                    )}
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {results.users.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-4">
+                              <Users className="w-5 h-5 text-cyan-400" />
+                              <h3 className="text-lg font-bold text-foreground">Developers ({results.users.length})</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {results.users.map((user) => (
+                                <Link key={user.id} href={`/profile/${user.id}`}>
+                                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-cyan-500 hover:shadow-lg hover:shadow-cyan-500/20 transition-all cursor-pointer">
+                                    <div className="flex items-start gap-4">
+                                      {user.metadata.avatar_url && (
+                                        <img
+                                          src={user.metadata.avatar_url || "/placeholder.svg"}
+                                          alt={user.title}
+                                          className="w-12 h-12 rounded-full"
+                                        />
+                                      )}
+                                      <div className="flex-1">
+                                        <h3 className="text-lg font-bold text-white hover:text-cyan-400">{user.title}</h3>
+                                        <p className="text-sm text-slate-300 line-clamp-2">{user.description}</p>
+                                        {user.metadata.skills && (
+                                          <TechBadgeList items={user.metadata.skills} max={10} />
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )
+              }
+              
+              // Default: show all categories without primary/secondary distinction
+              return (
+                <>
+                  {results.projects.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <Code2 className="w-5 h-5 text-blue-400" />
+                        <h2 className="text-2xl font-bold text-foreground">Projects ({results.projects.length})</h2>
+                      </div>
+                      <div className="space-y-4">
+                        {results.projects.map((project) => (
+                          <Link key={project.id} href={`/projects/${project.id}`}>
+                            <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 transition-all cursor-pointer">
+                              <h3 className="text-lg font-bold text-white hover:text-blue-400 mb-2">{project.title}</h3>
+                              <p className="text-sm text-slate-300 mb-3 line-clamp-2">{project.description}</p>
+                              {project.metadata.tech_stack && (
+                                <TechBadgeList items={project.metadata.tech_stack} max={4} />
+                              )}
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {results.discussions.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <MessageSquare className="w-5 h-5 text-purple-400" />
+                        <h2 className="text-2xl font-bold text-foreground">Discussions ({results.discussions.length})</h2>
+                      </div>
+                      <div className="space-y-4">
+                        {results.discussions.map((discussion) => (
+                          <Link key={discussion.id} href={`/discussions/${discussion.id}`}>
+                            <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-purple-500 hover:shadow-lg hover:shadow-purple-500/20 transition-all cursor-pointer">
+                              <div className="flex items-start justify-between mb-2">
+                                <h3 className="text-lg font-bold text-white hover:text-purple-400">{discussion.title}</h3>
+                                <span className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded">
+                                  {discussion.metadata.category}
+                                </span>
+                              </div>
+                              <p className="text-sm text-slate-300 line-clamp-2">{discussion.description}</p>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {results.users.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <Users className="w-5 h-5 text-cyan-400" />
+                        <h2 className="text-2xl font-bold text-foreground">Developers ({results.users.length})</h2>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {results.users.map((user) => (
+                          <Link key={user.id} href={`/profile/${user.id}`}>
+                            <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-cyan-500 hover:shadow-lg hover:shadow-cyan-500/20 transition-all cursor-pointer">
+                              <div className="flex items-start gap-4">
+                                {user.metadata.avatar_url && (
+                                  <img
+                                    src={user.metadata.avatar_url || "/placeholder.svg"}
+                                    alt={user.title}
+                                    className="w-12 h-12 rounded-full"
+                                  />
+                                )}
+                                <div className="flex-1">
+                                  <h3 className="text-lg font-bold text-white hover:text-cyan-400">{user.title}</h3>
+                                  <p className="text-sm text-slate-300 line-clamp-2">{user.description}</p>
+                                  {user.metadata.skills && (
+                                    <TechBadgeList items={user.metadata.skills} max={10} />
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
           </div>
         )}
       </main>

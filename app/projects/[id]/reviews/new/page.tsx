@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useParams } from "next/navigation"
+import { UniversalNav } from "@/components/universal-nav"
 
 const LANGUAGES = [
   "JavaScript",
@@ -91,7 +92,9 @@ export default function NewCodeReviewPage() {
   }
 
   return (
-    <div className="container max-w-3xl mx-auto py-8 px-4">
+    <div className="min-h-screen bg-background">
+      <UniversalNav />
+      <div className="max-w-7xl mx-auto py-8 px-4">
       <Button variant="ghost" asChild className="mb-6">
         <Link href={`/projects/${projectId}/reviews`}>
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -164,6 +167,7 @@ export default function NewCodeReviewPage() {
           </div>
         </form>
       </Card>
+      </div>
     </div>
   )
 }

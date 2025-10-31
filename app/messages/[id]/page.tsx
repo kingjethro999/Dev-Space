@@ -25,6 +25,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowLeft, Send } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
+import { UniversalNav } from "@/components/universal-nav"
+import { Textarea } from "@/components/ui/textarea"
+import { EmojiReactions } from "@/components/emoji-reactions"
 
 interface Message {
   id: string
@@ -33,6 +36,7 @@ interface Message {
   content: string
   created_at: any
   read: boolean
+  mentions?: { [username: string]: string } // Maps username -> userId
 }
 
 interface Conversation {
@@ -136,9 +140,10 @@ export default function ConversationPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-background">
+      <UniversalNav />
       <div className="border-b bg-background">
-        <div className="container max-w-4xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" asChild>
               <Link href="/messages">
@@ -161,7 +166,7 @@ export default function ConversationPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="container max-w-4xl mx-auto px-4 py-6">
+        <div className="max-w-7xl mx-auto px-4 py-6">
           {loading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
@@ -175,7 +180,7 @@ export default function ConversationPage() {
             </div>
           ) : messages.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">No messages yet. Start the conversation!</p>
+              <p className="text-muted-foreground text-base md:text-lg">No messages yet. Start the conversation!</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -195,8 +200,10 @@ export default function ConversationPage() {
                       <Card
                         className={`inline-block p-3 max-w-[70%] ${isOwn ? "bg-primary text-primary-foreground" : ""}`}
                       >
-                        <p className="text-sm">{message.content}</p>
+                        <p className={`text-sm ${isOwn ? "" : ""}`}>{message.content}</p>
                       </Card>
+                      {/* Emoji Reactions Here */}
+                      <EmojiReactions parentId={message.id} collectionName="messages" />
                       <p className="text-xs text-muted-foreground mt-1">
                         {message.created_at?.toDate().toLocaleTimeString()}
                       </p>
@@ -211,13 +218,14 @@ export default function ConversationPage() {
       </div>
 
       <div className="border-t bg-background">
-        <div className="container max-w-4xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <form onSubmit={sendMessage} className="flex gap-2">
-            <Input
-              placeholder="Type a message..."
+            <Textarea
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={e => setNewMessage(e.target.value)}
+              placeholder="Type a message..."
               className="flex-1"
+              rows={2}
             />
             <Button type="submit" size="icon" disabled={!newMessage.trim()}>
               <Send className="w-4 h-4" />
