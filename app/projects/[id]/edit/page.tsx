@@ -134,6 +134,15 @@ export default function EditProjectPage() {
         updated_at: new Date(),
       })
 
+      // Sync GitHub collaborators if enabled (non-blocking)
+      if (collaborationType === "authorized" && syncGithubCollaborators) {
+        fetch('/api/github/collaborators/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId })
+        }).catch(err => console.error('Background GitHub sync failed:', err))
+      }
+
       router.push(`/projects/${projectId}`)
     } catch (err: any) {
       setError(err.message || "Failed to update project")

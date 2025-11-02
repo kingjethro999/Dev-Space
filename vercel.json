@@ -1,17 +1,4 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/github-collaborators",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/github-commit-monitor",
-      "schedule": "0 12 * * *"
-    },
-    {
-      "path": "/api/cron/journey-reminders",
-      "schedule": "0 9 * * 1"
-    }
-  ]
+  "crons": []
 }
 

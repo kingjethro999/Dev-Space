@@ -245,6 +245,15 @@ export default function NewProjectPage() {
         createdAt: new Date(),
       })
 
+      // Sync GitHub collaborators if enabled (non-blocking)
+      if (collaborationType === "authorized" && syncGithubCollaborators) {
+        fetch('/api/github/collaborators/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId: projectRef.id })
+        }).catch(err => console.error('Background GitHub sync failed:', err))
+      }
+
       // Add activity
       await addDoc(collection(db, "activities"), {
         user_id: user.uid,

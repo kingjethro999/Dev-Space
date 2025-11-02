@@ -80,6 +80,20 @@ export default function ProjectJourneyPage() {
     checkPermissions()
   }, [project, user, id])
 
+  // Check for stale journey entries when viewing (non-blocking)
+  useEffect(() => {
+    if (!project || !user || !id) return
+    
+    // Only check if user is the owner
+    if (user.uid === project.owner) {
+      fetch('/api/journey/check-stale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: id, userId: user.uid })
+      }).catch(err => console.error('Journey stale check failed:', err))
+    }
+  }, [project, user, id])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">

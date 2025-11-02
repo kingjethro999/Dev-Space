@@ -150,8 +150,17 @@ export default function ProjectDetailPage() {
 
     if (project) {
       fetchGitHubStats()
+      
+      // Check for new commits (non-blocking, only if project has GitHub URL and journey enabled)
+      if (project.github_url && project.hasJourney && project.owner_id === user?.uid) {
+        fetch('/api/github/commits/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId: project.id })
+        }).catch(err => console.error('Background commit check failed:', err))
+      }
     }
-  }, [project])
+  }, [project, user])
 
   useEffect(() => {
     if (!user || !projectId) return
