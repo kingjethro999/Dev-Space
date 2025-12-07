@@ -5,21 +5,30 @@
  * Tests the API key and model to verify everything works
  */
 
-const encrypt = require('we-encrypt');
+// Load environment variables from .env file
+// Next.js loads .env automatically, but for standalone scripts we can use dotenv if available
+try {
+  require('dotenv').config();
+} catch (e) {
+  // dotenv not installed - environment variables must be set manually or via system env
+}
 
 async function testGlowAI() {
   console.log('🧪 Testing Glow AI / OpenRouter API\n');
   console.log('=' .repeat(60));
 
-  // Step 1: Get API key from vault
+  // Step 1: Get API key from environment variables
   console.log('\n1️⃣  Testing API Key Retrieval...');
   let apiKey;
   try {
-    // Try to get the API key
-    apiKey = encrypt.getSecret('OPENROUTER_API_KEY');
+    // Get the API key from environment variable
+    apiKey = process.env.OPENROUTER_API_KEY;
     
     if (!apiKey) {
       console.error('❌ API key is empty or not found');
+      console.error('\n💡 Make sure to:');
+      console.error('   - Set OPENROUTER_API_KEY in your .env file');
+      console.error('   - Or set OPENROUTER_API_KEY environment variable');
       process.exit(1);
     }
     
@@ -31,8 +40,8 @@ async function testGlowAI() {
   } catch (error) {
     console.error('❌ Failed to get API key:', error.message);
     console.error('\n💡 Make sure to:');
-    console.error('   - Run "encrypt setup <password>" to unlock the vault');
-    console.error('   - Or set ENCRYPT_PASSWORD environment variable');
+    console.error('   - Set OPENROUTER_API_KEY in your .env file');
+    console.error('   - Or set OPENROUTER_API_KEY environment variable');
     process.exit(1);
   }
 

@@ -18,9 +18,7 @@ console.log('\n🔐 Generated CRON_SECRET:');
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 console.log(secret);
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-console.log('📋 Add this to your vault:');
-console.log(`encrypt add CRON_SECRET "${secret}"\n`);
-console.log('Or add it manually to your .env file (if using .env):');
+console.log('📋 Add this to your .env file:');
 console.log(`CRON_SECRET=${secret}\n`);
 
 // Also save to a temporary file for easy copying (optional)
@@ -29,5 +27,5 @@ const path = require('path');
 const tempFile = path.join(__dirname, '.cron-secret-temp.txt');
 fs.writeFileSync(tempFile, secret);
 console.log(`💾 Secret also saved to: ${tempFile}`);
-console.log('⚠️  Remember to delete this file after adding to vault!\n');
+console.log('⚠️  Remember to delete this file after adding to .env!\n');
 

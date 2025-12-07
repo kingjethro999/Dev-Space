@@ -1,6 +1,6 @@
 /**
  * Cloudinary configuration
- * Loaded from encrypted vault (server-side only)
+ * Loaded from environment variables (server-side only)
  * Note: API_KEY and CLOUD_NAME can be used on client-side
  * SECRET should only be used on server-side
  */
@@ -8,14 +8,14 @@
 let cloudinaryConfigValue: { apiKey: string; cloudName: string; apiSecret: string };
 
 if (typeof window === 'undefined') {
-  // Server-side: Load from encrypted vault
+  // Server-side: Load from environment variables
   try {
     const { getCloudinaryConfig } = require('./secrets');
     cloudinaryConfigValue = getCloudinaryConfig();
   } catch (error) {
     throw new Error(
-      `Failed to load Cloudinary config from encrypted vault: ${error instanceof Error ? error.message : 'Unknown error'}. ` +
-      `Make sure to unlock the vault first: "encrypt setup <password>"`
+      `Failed to load Cloudinary config from environment variables: ${error instanceof Error ? error.message : 'Unknown error'}. ` +
+      `Make sure to set CLOUDINARY_API_KEY, CLOUDINARY_CLOUD_NAME, and CLOUDINARY_SECRET in your .env file`
     );
   }
 } else {

@@ -1,6 +1,6 @@
 /**
  * Secrets utility - Server-side only
- * Uses we-encrypt to securely retrieve secrets from the vault
+ * Uses environment variables to retrieve secrets
  * 
  * Note: This module can only be used in server-side code (API routes, server components)
  * For client-side usage, create API routes that use this module
@@ -8,43 +8,28 @@
  * Uses runtime checks instead of 'server-only' to avoid build errors when imported indirectly
  */
 
-// Lazy-load we-encrypt only when needed (server-side)
-let encryptCache: any = null;
-
-function getEncrypt() {
-  // Runtime check to ensure this only runs server-side
-  if (typeof window !== 'undefined') {
-    throw new Error('secrets.ts can only be used server-side');
-  }
-  
-  // Lazy load we-encrypt - only when actually called (server-side)
-  if (!encryptCache) {
-    encryptCache = require('we-encrypt');
-  }
-  return encryptCache;
+// Runtime check to ensure this only runs server-side
+if (typeof window !== 'undefined') {
+  throw new Error('secrets.ts can only be used server-side');
 }
 
 /**
- * Get a secret from the encrypted vault
- * Uses ENCRYPT_PASSWORD environment variable or falls back to common dev passwords
+ * Get a secret from environment variables
  * 
  * @param key - The secret key to retrieve
- * @returns The decrypted secret value
- * @throws Error if vault is locked and no password is available
+ * @returns The secret value from environment variable
+ * @throws Error if environment variable is not set
  */
 export function getSecret(key: string): string {
-  try {
-    const encrypt = getEncrypt();
-    // Try to get secret - will auto-unlock if ENCRYPT_PASSWORD is set
-    return encrypt.getSecret(key);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to retrieve secret "${key}": ${errorMessage}. Make sure ENCRYPT_PASSWORD is set or vault is unlocked.`);
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Environment variable "${key}" is not set. Please add it to your .env file.`);
   }
+  return value;
 }
 
 /**
- * Get Firebase configuration from encrypted vault
+ * Get Firebase configuration from environment variables
  */
 export function getFirebaseConfig() {
   return {
@@ -60,7 +45,7 @@ export function getFirebaseConfig() {
 }
 
 /**
- * Get Cloudinary configuration from encrypted vault
+ * Get Cloudinary configuration from environment variables
  */
 export function getCloudinaryConfig() {
   return {
@@ -71,28 +56,16 @@ export function getCloudinaryConfig() {
 }
 
 /**
- * Get OpenRouter API key from encrypted vault
+ * Get OpenRouter API key from environment variables
  */
 export function getOpenRouterApiKey(): string {
   return getSecret('OPENROUTER_API_KEY');
 }
 
 /**
- * Get CRON_SECRET from encrypted vault for Vercel cron job authentication
+ * Get CRON_SECRET from environment variables for Vercel cron job authentication
  */
 export function getCronSecret(): string {
   return getSecret('CRON_SECRET');
-}
-
-/**
- * Check if vault is unlocked
- */
-export function isVaultUnlocked(): boolean {
-  try {
-    const encrypt = getEncrypt();
-    return encrypt.isUnlocked();
-  } catch {
-    return false;
-  }
 }
 

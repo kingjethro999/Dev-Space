@@ -7,23 +7,23 @@ import { getAnalytics, isSupported } from "firebase/analytics"
 
 // Firebase configuration
 // Note: Firebase config is public and safe to use client-side
-// We load from vault server-side, but provide fallback for client initialization
+// We load from environment variables server-side, but provide fallback for client initialization
 let firebaseConfigValue: any;
 
 if (typeof window === 'undefined') {
-  // Server-side: Try to load from encrypted vault
+  // Server-side: Try to load from environment variables
   try {
     const serverConfig = require('./firebase-config-server');
     if (serverConfig && serverConfig.firebaseConfig) {
       firebaseConfigValue = serverConfig.firebaseConfig;
     } else {
-      throw new Error('Firebase config not loaded from vault');
+      throw new Error('Firebase config not loaded from environment variables');
     }
   } catch (error) {
-    // If vault loading fails, use public config as fallback for API routes
-    // This allows API routes to work even if vault isn't unlocked
+    // If env loading fails, use public config as fallback for API routes
+    // This allows API routes to work even if env vars aren't set
     // Firebase config is public anyway, so this is safe
-    console.warn('Failed to load Firebase config from vault, using public config:', error instanceof Error ? error.message : 'Unknown error');
+    console.warn('Failed to load Firebase config from environment variables, using public config:', error instanceof Error ? error.message : 'Unknown error');
     firebaseConfigValue = {
       apiKey: "AIzaSyA4T14XH4Kls8Qesffr6KNywUXrwqbs8LQ",
       authDomain: "dev-space-d8dbe.firebaseapp.com",

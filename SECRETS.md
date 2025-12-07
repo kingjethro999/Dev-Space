@@ -1,99 +1,106 @@
-# 🔐 Secrets Management
+# 🔐 Environment Variables Configuration
 
-This project uses [we-encrypt](https://www.npmjs.com/package/we-encrypt) to securely manage API keys and secrets **directly in the code** - no environment variables needed!
+This project uses environment variables to securely manage API keys and secrets.
 
 ## Quick Start
 
-### 1. Unlock the vault (required before starting dev server)
+### 1. Copy the example environment file
 
 ```bash
-pnpm run unlock
-# or
-encrypt setup temp-secure-password-12345
+cp .env.example .env
 ```
 
-This unlocks the encrypted vault so secrets can be loaded by the application.
+### 2. Fill in your environment variables
 
-### 2. Start development
+Edit the `.env` file with your actual API keys and secrets. All required variables are listed in `.env.example`.
+
+### 3. Start development
 
 ```bash
 pnpm dev
 ```
 
-The application will automatically load secrets from the encrypted vault during server-side initialization.
+The application will automatically load secrets from environment variables during server-side initialization.
 
-## Workflow
+## Required Environment Variables
 
-### Before Committing to GitHub
+### Firebase Configuration
 
-```bash
-# Lock the vault to encrypt all secrets
-pnpm run lock
-# or
-encrypt lockup temp-secure-password-12345
-```
+- `FIREBASE_API_KEY` - Firebase API key
+- `FIREBASE_AUTH_DOMAIN` - Firebase auth domain
+- `FIREBASE_DATABASE_URL` - Firebase Realtime Database URL
+- `FIREBASE_PROJECT_ID` - Firebase project ID
+- `FIREBASE_STORAGE_BUCKET` - Firebase storage bucket
+- `FIREBASE_MESSAGING_SENDER_ID` - Firebase messaging sender ID
+- `FIREBASE_APP_ID` - Firebase app ID
+- `FIREBASE_MEASUREMENT_ID` - Firebase Analytics measurement ID
 
-This encrypts all secrets so you can safely commit the `.encrypt/` directory to GitHub.
+### Firebase Config (Secondary)
 
-### Before Development
+- `FIREBASE_CONFIG_API_KEY` - Secondary Firebase API key
+- `FIREBASE_CONFIG_AUTH_DOMAIN` - Secondary Firebase auth domain
+- `FIREBASE_CONFIG_PROJECT_ID` - Secondary Firebase project ID
+- `FIREBASE_CONFIG_STORAGE_BUCKET` - Secondary Firebase storage bucket
+- `FIREBASE_CONFIG_MESSAGING_SENDER_ID` - Secondary Firebase messaging sender ID
+- `FIREBASE_CONFIG_APP_ID` - Secondary Firebase app ID
 
-**Always unlock the vault first:**
+### Cloudinary Configuration
 
-```bash
-pnpm run unlock
-# or
-encrypt setup temp-secure-password-12345
-```
+- `CLOUDINARY_API_KEY` - Cloudinary API key
+- `CLOUDINARY_CLOUD_NAME` - Cloudinary cloud name
+- `CLOUDINARY_SECRET` - Cloudinary API secret (server-side only)
 
-Then start your dev server - secrets are loaded directly from the vault.
+### OpenRouter API
+
+- `OPENROUTER_API_KEY` - OpenRouter API key for GLOW AI
+
+### Cron Jobs
+
+- `CRON_SECRET` - Secret for authenticating Vercel cron job requests
+
+### Optional
+
+- `NEXT_PUBLIC_APP_URL` - Public URL of the application (defaults to http://localhost:3000)
 
 ## How It Works
 
-Secrets are loaded **directly from the encrypted vault** using the `we-encrypt` package:
+Secrets are loaded from environment variables:
 
-- **Firebase config**: Loaded from vault in `lib/firebase.ts`
-- **Cloudinary config**: Loaded from vault in `lib/CLOUDINARY.tsx`
-- **OpenRouter API key**: Loaded from vault in `app/api/openrouter/route.ts`
+- **Firebase config**: Loaded from env in `lib/firebase.ts` and `lib/firebase-config-server.ts`
+- **Cloudinary config**: Loaded from env in `lib/CLOUDINARY.tsx`
+- **OpenRouter API key**: Loaded from env in `app/api/openrouter/route.ts`
+- **Cron secret**: Loaded from env in cron job routes
 
-All secrets are accessed via the `lib/secrets.ts` utility which uses `we-encrypt` under the hood.
+All secrets are accessed via the `lib/secrets.ts` utility which reads from `process.env`.
 
 ## Security Notes
 
 ⚠️ **Important:**
-- Always lock the vault before committing (`encrypt lockup <password>`)
-- Change the default password (`temp-secure-password-12345`) to a strong password
-- The `.encrypt/` directory contains encrypted secrets and **is safe to commit**
-- Secrets are **never** stored in `.env` files or environment variables
-- Vault must be unlocked before running dev server or building
+- Never commit your `.env` file to version control
+- The `.env` file is already in `.gitignore`
+- Always use `.env.example` as a template for required variables
+- For production, set environment variables in your hosting platform (Vercel, etc.)
+- Client-side variables must be prefixed with `NEXT_PUBLIC_` to be exposed to the browser
 
-## Changing Password
+## Generating a New Cron Secret
+
+To generate a new `CRON_SECRET`:
 
 ```bash
-# 1. Unlock with old password
-encrypt setup <old-password>
-
-# 2. Lock with new password
-encrypt lockup <new-password>
+node scripts/generate-cron-secret.js
 ```
 
-## Available Secrets
-
-View all encrypted secrets:
-```bash
-encrypt status
-```
-
-Get a specific secret:
-```bash
-encrypt get FIREBASE_API_KEY
-```
+Then add the generated secret to your `.env` file.
 
 ## Troubleshooting
 
-**Error: "Vault is locked"**
-- Run `encrypt setup <password>` to unlock the vault
+**Error: "Environment variable X is not set"**
+- Check that the variable is set in your `.env` file
+- Verify the variable name matches exactly (case-sensitive)
+- Make sure `.env` is in the project root directory
+- Restart your dev server after adding new variables
 
-**Error: "Failed to load config from encrypted vault"**
-- Make sure vault is unlocked: `encrypt setup <password>`
-- Check that secrets exist: `encrypt status`
-
+**Error: "Failed to load config from environment variables"**
+- Verify all required variables are set in `.env`
+- Check for typos in variable names
+- Ensure there are no extra spaces around the `=` sign in `.env`

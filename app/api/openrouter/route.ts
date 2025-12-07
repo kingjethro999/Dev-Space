@@ -10,21 +10,21 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    // Get the API key from encrypted vault
+    // Get the API key from environment variables
     let apiKey: string;
     try {
       apiKey = getOpenRouterApiKey();
       if (!apiKey) {
         console.error('OpenRouter API key is missing');
         return NextResponse.json(
-          { error: 'API key not configured. Please check vault setup.' },
+          { error: 'API key not configured. Please check environment variables.' },
           { status: 500 }
         );
       }
     } catch (error) {
       console.error('Failed to get OpenRouter API key:', error);
       return NextResponse.json(
-        { error: 'Failed to retrieve API key. Make sure vault is unlocked.' },
+        { error: 'Failed to retrieve API key. Make sure OPENROUTER_API_KEY is set in your .env file.' },
         { status: 500 }
       );
     }
