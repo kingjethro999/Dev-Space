@@ -6,6 +6,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Turbopack config (Next.js 16 uses Turbopack by default)
+  turbopack: {},
   // Webpack config for webpack bundler (used with --webpack flag)
   webpack: (config, { isServer }) => {
     if (!isServer) {
