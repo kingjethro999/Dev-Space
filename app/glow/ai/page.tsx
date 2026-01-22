@@ -13,7 +13,7 @@ import Image from "next/image"
 import { toast } from "@/hooks/use-toast"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { db } from "@/lib/firebase"
-import { doc, getDoc } from "firebase/firestore"
+import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { RepositorySelector } from "@/components/repository-selector"
 import { getRepositoryReadme, getRepositoryDetails } from "@/lib/github-utils"
@@ -103,101 +103,73 @@ export default function GlowAIPage() {
   const loadChatSessions = async () => {
     if (!user) return
 
+    setIsLoadingHistory(true)
+
     try {
-      const response = await fetch(`/api/glow/history?userId=${user.uid}`)
-      if (response.ok) {
-        const data = await response.json()
-        if (data.history && Array.isArray(data.history) && data.history.length > 0) {
-          // Group messages into sessions (based on time gaps)
-          const sessions: ChatSession[] = []
-          let currentSession: Message[] = []
-          let sessionTitle = "New Chat"
+      const historySnap = await getDoc(doc(db, 'glow_chat_history', user.uid))
+      const rawMessages = historySnap.exists() ? historySnap.data()?.messages || [] : []
 
-          data.history.forEach((msg: any, index: number) => {
-            // Ensure message has proper format
-            const message: Message = {
-              role: msg.role,
-              content: msg.content,
-              timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date()
-            }
-            
-            if (index === 0) {
-              currentSession.push(message)
-              sessionTitle = message.role === 'user' ? message.content.substring(0, 50) || "New Chat" : "New Chat"
-            } else {
-              const prevMsg = data.history[index - 1]
-              const prevTime = new Date(prevMsg.timestamp || Date.now()).getTime()
-              const currTime = new Date(msg.timestamp || Date.now()).getTime()
-              const gapMinutes = (currTime - prevTime) / (1000 * 60)
+      if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
+        setChatSessions([])
+        return
+      }
 
-              if (gapMinutes > 30 && currentSession.length > 0) {
-                sessions.push({
-                  id: `session-${Date.now()}-${sessions.length}`,
-                  title: currentSession.find(m => m.role === 'user')?.content?.substring(0, 50) || "Chat",
-                  messages: currentSession,
-                  updatedAt: new Date(currentSession[currentSession.length - 1].timestamp || Date.now())
-                })
-                currentSession = [message]
-                sessionTitle = message.role === 'user' ? message.content.substring(0, 50) || "New Chat" : "New Chat"
-              } else {
-                currentSession.push(message)
-              }
-            }
-          })
+      const normalizedHistory = rawMessages.map((msg: any) => ({
+        role: msg?.role || 'user',
+        content: msg?.content || '',
+        timestamp: msg?.timestamp?.toDate
+          ? msg.timestamp.toDate()
+          : msg?.timestamp?.seconds
+            ? new Date(msg.timestamp.seconds * 1000)
+            : msg?.timestamp
+              ? new Date(msg.timestamp)
+              : new Date()
+      }))
 
-          if (currentSession.length > 0) {
+      // Group messages into sessions based on time gaps
+      const sessions: ChatSession[] = []
+      let currentSession: Message[] = []
+
+      normalizedHistory.forEach((msg, index) => {
+        if (index === 0) {
+          currentSession.push(msg)
+        } else {
+          const prevMsg = normalizedHistory[index - 1]
+          const prevTime = new Date(prevMsg.timestamp || Date.now()).getTime()
+          const currTime = new Date(msg.timestamp || Date.now()).getTime()
+          const gapMinutes = (currTime - prevTime) / (1000 * 60)
+
+          if (gapMinutes > 30 && currentSession.length > 0) {
             sessions.push({
               id: `session-${Date.now()}-${sessions.length}`,
               title: currentSession.find(m => m.role === 'user')?.content?.substring(0, 50) || "Chat",
               messages: currentSession,
               updatedAt: new Date(currentSession[currentSession.length - 1].timestamp || Date.now())
             })
+            currentSession = [msg]
+          } else {
+            currentSession.push(msg)
           }
-
-          // If no sessions created but history exists, create one session with all messages
-          if (sessions.length === 0 && data.history.length > 0) {
-            const allMessages: Message[] = data.history.map((msg: any) => ({
-              role: msg.role,
-              content: msg.content,
-              timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date()
-            }))
-            sessions.push({
-              id: `session-${Date.now()}`,
-              title: allMessages.find(m => m.role === 'user')?.content?.substring(0, 50) || "Chat",
-              messages: allMessages,
-              updatedAt: new Date(allMessages[allMessages.length - 1].timestamp || Date.now())
-            })
-          }
-
-          // Sort sessions by updatedAt descending
-          sessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-          
-          setChatSessions(sessions)
-          if (sessions.length > 0 && !currentSessionId) {
-            setCurrentSessionId(sessions[0].id)
-            setChatHistory(sessions[0].messages)
-            setShowPagination(false)
-            setCurrentPage(1)
-          }
-        } else {
-          // No history found - reset sessions but keep loading state correct
-          setChatSessions([])
         }
-      } else {
-        // Response not OK - might be an error
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        console.error('Failed to fetch chat history:', response.status, response.statusText, errorData)
-        
-        // Show error to user if it's a server error
-        if (response.status >= 500) {
-          toast({
-            title: "Error loading history",
-            description: errorData.message || errorData.error || "Could not load chat history. Please try again.",
-            variant: "destructive"
-          })
-        }
-        
-        setChatSessions([])
+      })
+
+      if (currentSession.length > 0) {
+        sessions.push({
+          id: `session-${Date.now()}-${sessions.length}`,
+          title: currentSession.find(m => m.role === 'user')?.content?.substring(0, 50) || "Chat",
+          messages: currentSession,
+          updatedAt: new Date(currentSession[currentSession.length - 1].timestamp || Date.now())
+        })
+      }
+
+      sessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+
+      setChatSessions(sessions)
+      if (sessions.length > 0 && !currentSessionId) {
+        setCurrentSessionId(sessions[0].id)
+        setChatHistory(sessions[0].messages)
+        setShowPagination(false)
+        setCurrentPage(1)
       }
     } catch (error) {
       console.error('Failed to load chat sessions:', error)
@@ -421,45 +393,45 @@ export default function GlowAIPage() {
     if (!user) return
     
     try {
-      // Get all messages from all sessions to save complete history
+      // Collect all messages across sessions to persist complete history
       const allMessages: Message[] = []
       const sessionsToUse = sessions || chatSessions
-      
-      // If we have existing sessions, collect all their messages
+
       if (sessionsToUse.length > 0) {
         sessionsToUse.forEach(session => {
-          // If this is the current session being updated, use the new messages
           if (currentSessionId === session.id) {
             allMessages.push(...messages)
           } else {
-            // Otherwise, use the existing session messages
             allMessages.push(...session.messages)
           }
         })
       } else {
-        // No sessions yet, just use the current messages
         allMessages.push(...messages)
       }
 
-      // Sort all messages by timestamp to maintain order
+      // Sort for deterministic ordering
       allMessages.sort((a, b) => {
         const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0
         const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0
         return timeA - timeB
       })
 
-      await fetch('/api/glow/history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // Persist directly to Firestore with authenticated client (bypasses API route issues)
+      await setDoc(
+        doc(db, 'glow_chat_history', user.uid),
+        {
           userId: user.uid,
           messages: allMessages.map(msg => ({
             role: msg.role,
             content: msg.content,
-            timestamp: msg.timestamp || new Date()
-          }))
-        })
-      })
+            timestamp: msg.timestamp instanceof Timestamp
+              ? msg.timestamp
+              : Timestamp.fromDate(new Date(msg.timestamp || Date.now()))
+          })),
+          updatedAt: Timestamp.now()
+        },
+        { merge: true }
+      )
     } catch (error) {
       console.error('Failed to save chat history:', error)
     }

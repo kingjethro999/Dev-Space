@@ -312,20 +312,20 @@ export function GlowAIChat({ showButton = true, defaultOpen = false }: GlowAICha
                       className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-[80%] lg:max-w-[70%] px-4 py-2 rounded-lg ${
+                        className={`max-w-[82%] lg:max-w-[72%] rounded-2xl border ${
                           message.role === 'user'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-foreground'
-                        }`}
+                            ? 'bg-primary text-primary-foreground border-primary/30 shadow-sm'
+                            : 'bg-card text-foreground border-border shadow-sm'
+                        } p-4`}
                       >
                         {message.role === 'assistant' ? (
-                          <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-current prose-p:text-current prose-strong:text-current prose-code:text-current prose-pre:text-current">
+                          <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-0 prose-headings:my-0 prose-strong:text-current prose-code:text-current prose-pre:text-current">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
                               {message.content}
                             </ReactMarkdown>
                           </div>
                         ) : (
-                          <p className="whitespace-pre-wrap">{message.content}</p>
+                          <p className="whitespace-pre-wrap leading-relaxed text-sm md:text-base">{message.content}</p>
                         )}
                       </div>
                     </motion.div>

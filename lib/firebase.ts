@@ -3,7 +3,7 @@ import { getAuth } from "firebase/auth"
 import { getFirestore } from "firebase/firestore"
 import { getStorage } from "firebase/storage"
 import { getDatabase } from "firebase/database"
-import { getAnalytics, isSupported } from "firebase/analytics"
+import { initializeAnalytics, isSupported } from "firebase/analytics"
 
 // Firebase configuration
 // Note: Firebase config is public and safe to use client-side
@@ -64,8 +64,17 @@ let analytics: any = null
 if (typeof window !== 'undefined') {
   isSupported().then((supported) => {
     if (supported) {
-      analytics = getAnalytics(app)
+      const host = window.location.hostname
+      const cookieDomain = host === 'localhost' ? 'localhost' : (process.env.NEXT_PUBLIC_APP_DOMAIN || 'the-dev-space.vercel.app')
+      analytics = initializeAnalytics(app, {
+        config: {
+          cookie_domain: cookieDomain,
+          cookie_flags: 'SameSite=None;Secure'
+        }
+      })
     }
+  }).catch((err) => {
+    console.error('Failed to initialize analytics:', err)
   })
 }
 
