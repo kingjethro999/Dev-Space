@@ -185,8 +185,8 @@ export function RepositorySelector({ isOpen, onClose, onSelect, selectedReposito
                 </div>
               </div>
             ) : (
-              <ScrollArea className="flex-1">
-                <div className="space-y-2 pr-4 pb-4">
+              <div className="flex-1 overflow-y-auto overscroll-contain pr-2">
+                <div className="space-y-2 pr-2 pb-4">
                   {filteredRepos.map((repo) => (
                     <Card
                       key={repo.id}
@@ -266,7 +266,7 @@ export function RepositorySelector({ isOpen, onClose, onSelect, selectedReposito
                     </Card>
                   ))}
                 </div>
-              </ScrollArea>
+              </div>
             )}
           </div>
         </div>

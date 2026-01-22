@@ -31,11 +31,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const firstName = currentUser.displayName?.split(' ')[0] || 'Developer'
           
-          // Check if this is a returning user (last login was more than 30 days ago)
-          const lastLoginTime = currentUser.metadata.lastSignInTime
-          const isReturningUser = lastLoginTime ? 
-            (Date.now() - new Date(lastLoginTime).getTime()) > (30 * 24 * 60 * 60 * 1000) : 
-            false
+          // Check if this is a returning user (any login after the first)
+          const isFirstLogin = currentUser.metadata.creationTime === currentUser.metadata.lastSignInTime
+          const isReturningUser = !isFirstLogin
           
           await sendWelcomeEmail({
             username: currentUser.email,

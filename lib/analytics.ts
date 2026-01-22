@@ -1,6 +1,6 @@
 "use client"
 
-import { getAnalytics, isSupported, Analytics } from "firebase/analytics"
+import { initializeAnalytics as firebaseInitializeAnalytics, isSupported, Analytics } from "firebase/analytics"
 import app from "./firebase"
 
 let analytics: Analytics | null = null
@@ -11,7 +11,14 @@ export const initializeAnalytics = async (): Promise<Analytics | null> => {
   try {
     const supported = await isSupported()
     if (supported && !analytics) {
-      analytics = getAnalytics(app)
+      const host = window.location.hostname
+      const cookieDomain = host === 'localhost' ? 'localhost' : (process.env.NEXT_PUBLIC_APP_DOMAIN || 'the-dev-space.vercel.app')
+      analytics = firebaseInitializeAnalytics(app, {
+        config: {
+          cookie_domain: cookieDomain,
+          cookie_flags: 'SameSite=None;Secure'
+        }
+      })
       console.log('Firebase Analytics initialized successfully')
     }
     return analytics

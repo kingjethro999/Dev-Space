@@ -149,12 +149,12 @@ function HomeContent() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-950">
-        <div className="text-center">
+        <div className="flex flex-col items-center justify-center text-center space-y-6">
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.5 }}
-            className="relative"
+            className="relative flex items-center justify-center"
           >
             <div className="w-16 h-16 border-4 border-blue-200 rounded-full animate-spin border-t-blue-600"></div>
             <div className="absolute inset-0 w-16 h-16 border-4 border-transparent rounded-full animate-ping border-t-blue-600"></div>
@@ -163,7 +163,7 @@ function HomeContent() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.5 }}
-            className="text-slate-300 mt-4 text-lg font-medium"
+            className="text-slate-300 text-lg font-medium"
           >
             Initializing Dev Space...
           </motion.p>
@@ -180,7 +180,7 @@ function HomeContent() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-b border-border">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -260,7 +260,7 @@ function HomeContent() {
 
       {/* Hero Section */}
       <section className="relative pt-20 pb-16 overflow-hidden bg-gradient-to-br from-background to-muted/20">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left Column - Content */}
             <motion.div
@@ -292,7 +292,7 @@ function HomeContent() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.4 }}
-                  className="text-xl text-muted-foreground max-w-[1560px]"
+                  className="text-xl text-muted-foreground max-w-6xl"
                 >
                   DevSpace is more than a platform — it's a movement. Built to bridge the gap between
                   student developers and the wider tech world, we help you share your projects, learn from others,
@@ -368,12 +368,12 @@ function HomeContent() {
 
       {/* Problem & Solution Section */}
       <section className="py-20 bg-muted/30">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="text-left mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
               A Place for Every Developer —{" "}
@@ -381,7 +381,7 @@ function HomeContent() {
                 From Classroom to Cosmos
               </span>
             </h2>
-            <p className="text-xl text-muted-foreground max-w-[1560px] mx-auto">
+            <p className="text-xl text-muted-foreground max-w-6xl">
               DevSpace started as an idea on campus — a way to connect talented but isolated developers.
               We saw brilliant coders who were too shy or too uncertain to collaborate because of age gaps,
               level differences, or simple distance.
@@ -498,12 +498,12 @@ function HomeContent() {
 
       {/* DevSpace Features Section */}
       <section className="py-20 bg-background">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="text-left mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
               Your Developer Journey,{" "}
@@ -511,7 +511,7 @@ function HomeContent() {
                 All in One Space
               </span>
             </h2>
-            <p className="text-xl text-muted-foreground max-w-[1560px] mx-auto">
+            <p className="text-xl text-muted-foreground max-w-6xl">
               DevSpace is a community of developers helping each other become better.
               We don't just share finished products — we share journeys.
             </p>
@@ -582,7 +582,7 @@ function HomeContent() {
 
       {/* Developer Activity Section */}
       <section className="py-20 bg-muted/30">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
@@ -669,18 +669,18 @@ function HomeContent() {
 
       {/* Blog & Learning Section */}
       <section className="py-20 bg-muted/30">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="text-left mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
               Learn, Share, and{" "}
               <span className="text-primary">Grow Together</span>
             </h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+            <p className="text-xl text-muted-foreground max-w-3xl">
               Discover insights, tutorials, and stories from the DevSpace community.
               From beginner guides to advanced techniques, learn from developers who've been there.
             </p>
@@ -750,26 +750,26 @@ function HomeContent() {
 
       {/* Creator Section */}
       <section className="py-20 bg-background">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center"
+            className="text-left"
           >
-            <div className="max-w-[1560px] mx-auto">
+            <div className="max-w-6xl mx-auto">
               <div className="bg-card border border-border rounded-2xl p-12">
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ duration: 0.6, delay: 0.2 }}
-                  className="w-20 h-20 bg-primary rounded-full flex items-center justify-center mx-auto mb-6"
+                  className="w-20 h-20 bg-primary rounded-full flex items-center justify-center mb-6"
                 >
                   <Code2 className="w-10 h-10 text-primary-foreground" />
                 </motion.div>
 
                 <h3 className="text-3xl font-bold text-foreground mb-4">Built by King Jethro</h3>
-                <p className="text-xl text-muted-foreground mb-8 max-w-[1560px] mx-auto">
+                <p className="text-xl text-muted-foreground mb-8 max-w-6xl">
                   A passionate developer who believes in the power of community and collaboration.
                   Building tools that bring developers together and make the world a better place through code.
                 </p>
@@ -796,7 +796,7 @@ function HomeContent() {
 
       {/* Community & Collaboration Section */}
       <section className="py-20 bg-background">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
@@ -866,27 +866,27 @@ function HomeContent() {
 
       {/* Beyond the School - Vision Section */}
       <section className="py-20 bg-muted/30">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="text-left mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
               Born on Campus.{" "}
               <span className="text-primary">Built for Every Developer.</span>
             </h2>
-            <p className="text-xl text-muted-foreground max-w-4xl mx-auto mb-8">
+            <p className="text-xl text-muted-foreground max-w-4xl mb-8">
               DevSpace began as a university initiative — but we're not stopping there.
               The mission is bigger: to connect developers across schools, regions, and countries.
               A shared environment where talent grows through visibility, not seniority.
             </p>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-8">
+            <p className="text-lg text-muted-foreground max-w-3xl mb-8">
               Every developer deserves a platform to showcase what they can do.
               DevSpace is that platform — open, inclusive, and built for the next generation of innovators.
             </p>
-            <div className="bg-card border border-border rounded-2xl p-8 max-w-2xl mx-auto">
+            <div className="bg-card border border-border rounded-2xl p-8 max-w-2xl">
               <p className="text-xl font-semibold text-foreground italic">
                 "Because no idea should stay hidden. No developer should build alone."
               </p>
@@ -898,9 +898,9 @@ function HomeContent() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-center"
+              className="text-left"
             >
-              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                 <Globe2 className="w-10 h-10 text-primary" />
               </div>
               <h3 className="text-xl font-bold text-foreground mb-2">Global Reach</h3>
@@ -911,9 +911,9 @@ function HomeContent() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
-              className="text-center"
+              className="text-left"
             >
-              <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
                 <Users2 className="w-10 h-10 text-green-500" />
               </div>
               <h3 className="text-xl font-bold text-foreground mb-2">Inclusive Community</h3>
@@ -924,9 +924,9 @@ function HomeContent() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.6 }}
-              className="text-center"
+              className="text-left"
             >
-              <div className="w-20 h-20 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-20 h-20 bg-purple-500/10 rounded-full flex items-center justify-center mb-4">
                 <Rocket className="w-10 h-10 text-purple-500" />
               </div>
               <h3 className="text-xl font-bold text-foreground mb-2">Next Generation</h3>
@@ -938,18 +938,18 @@ function HomeContent() {
 
       {/* Real Developer Activity Section - Enhanced */}
       <section className="py-20 bg-background">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="text-left mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
               See DevSpace in{" "}
               <span className="text-primary">Action</span>
             </h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+            <p className="text-xl text-muted-foreground max-w-3xl">
               Watch how developers are actively collaborating, building projects, and growing together on DevSpace.
               Join a community that's already making a difference.
             </p>
@@ -1030,7 +1030,7 @@ function HomeContent() {
 
       {/* Contact & Support Section */}
       <section className="py-20 bg-background">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, x: -50 }}
@@ -1125,12 +1125,12 @@ function HomeContent() {
 
       {/* Final CTA Section */}
       <section className="py-20 bg-muted/30">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center"
+            className="text-left"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
               Step Into the Space.<br />
@@ -1138,7 +1138,7 @@ function HomeContent() {
                 Build. Connect. Launch.
               </span>
             </h2>
-            <p className="text-xl text-muted-foreground mb-8 max-w-[1560px] mx-auto">
+            <p className="text-xl text-muted-foreground mb-8 max-w-6xl">
               DevSpace is waiting for you — a place where your code meets opportunity.
               Connect with developers who think like you. Share your projects with people who understand your passion.
               Learn, teach, and grow — together.
@@ -1179,7 +1179,7 @@ function HomeContent() {
 
       {/* AI Chat Modal */}
       <Dialog open={aiChatOpen} onOpenChange={setAiChatOpen}>
-        <DialogContent className="max-w-[1560px] h-[600px] bg-card border-border">
+        <DialogContent className="max-w-6xl h-[600px] bg-card border-border">
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2 text-foreground">
               <Bot className="w-5 h-5" />

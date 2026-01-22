@@ -10,6 +10,8 @@ import { Bot, ArrowLeft, Trash2, Calendar, MessageSquare } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import Link from "next/link"
 import { GlowAIChat } from "@/components/glow-ai-chat"
+import { db } from "@/lib/firebase"
+import { doc, getDoc, deleteDoc } from "firebase/firestore"
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -40,12 +42,23 @@ export default function GlowHistoryPage() {
 
     setLoadingHistory(true)
     try {
-      const response = await fetch(`/api/glow/history?userId=${user.uid}`)
-      if (response.ok) {
-        const data = await response.json()
-        if (data.history && Array.isArray(data.history)) {
-          setHistory(data.history)
-        }
+      const snap = await getDoc(doc(db, 'glow_chat_history', user.uid))
+      const messages = snap.exists() ? snap.data()?.messages || [] : []
+      if (Array.isArray(messages)) {
+        const normalized = messages.map((msg: any) => ({
+          role: msg?.role || 'user',
+          content: msg?.content || '',
+          timestamp: msg?.timestamp?.toDate
+            ? msg.timestamp.toDate().toISOString()
+            : msg?.timestamp?.seconds
+              ? new Date(msg.timestamp.seconds * 1000).toISOString()
+              : msg?.timestamp
+                ? new Date(msg.timestamp).toISOString()
+                : new Date().toISOString()
+        }))
+        setHistory(normalized)
+      } else {
+        setHistory([])
       }
     } catch (error) {
       console.error('Failed to load history:', error)
@@ -60,12 +73,8 @@ export default function GlowHistoryPage() {
     }
 
     try {
-      const response = await fetch(`/api/glow/history?userId=${user.uid}`, {
-        method: 'DELETE'
-      })
-      if (response.ok) {
-        setHistory([])
-      }
+      await deleteDoc(doc(db, 'glow_chat_history', user.uid))
+      setHistory([])
     } catch (error) {
       console.error('Failed to clear history:', error)
     }
