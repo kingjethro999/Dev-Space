@@ -31,6 +31,8 @@ const TECH_OPTIONS = [
   "C++",
   "Go",
   "Rust",
+  "PHP",
+  "Laravel",
   "PostgreSQL",
   "MongoDB",
   "Firebase",
@@ -77,11 +79,12 @@ export default function NewProjectPage() {
   const [projectImagePublicId, setProjectImagePublicId] = useState<string>("")
   const [collaborationType, setCollaborationType] = useState<"solo" | "authorized" | "open">("solo")
   const [syncGithubCollaborators, setSyncGithubCollaborators] = useState(false)
+  const [showAllTech, setShowAllTech] = useState(false)
 
   useEffect(() => {
     const checkGithubConnection = async () => {
       if (!user) return
-      
+
       try {
         const userDoc = await getDoc(doc(db, 'users', user.uid))
         if (userDoc.exists()) {
@@ -133,7 +136,7 @@ export default function NewProjectPage() {
                 GitHub Required
               </CardTitle>
               <CardDescription className="text-base text-muted-foreground">
-                To create projects on DevSpace, you need to connect your GitHub account. 
+                To create projects on DevSpace, you need to connect your GitHub account.
                 This allows you to select repositories directly and showcase your work seamlessly.
               </CardDescription>
             </CardHeader>
@@ -150,7 +153,7 @@ export default function NewProjectPage() {
               </div>
 
               <div className="flex space-x-2">
-                <Button 
+                <Button
                   onClick={async () => {
                     try {
                       await signInWithGitHub()
@@ -165,8 +168,8 @@ export default function NewProjectPage() {
                   <Github className="w-4 h-4 mr-2" />
                   Connect GitHub
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => router.push('/discover')}
                   className="flex-1"
                 >
@@ -288,6 +291,27 @@ export default function NewProjectPage() {
           )}
 
           <div>
+            <label className="block text-sm font-medium mb-2">Project Image</label>
+            <div className="flex items-center gap-4">
+              <div className="w-28 h-28 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden">
+                {projectImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={projectImageUrl} alt="Project" className="w-full h-full object-cover" />
+                ) : (
+                  <Briefcase className="w-8 h-8 text-muted-foreground" />
+                )}
+              </div>
+              <ProjectImageUploadButton onUploaded={({ url, publicId }) => { setProjectImageUrl(url); setProjectImagePublicId(publicId); }}>
+                Upload (1:1 crop)
+              </ProjectImageUploadButton>
+              {projectImageUrl && (
+                <Button type="button" variant="ghost" onClick={() => { setProjectImageUrl(""); setProjectImagePublicId("") }}>Remove</Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">Users crop manually with a 1:1 ratio in the upload dialog.</p>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium mb-2">Project Title</label>
             <Input
               type="text"
@@ -329,7 +353,7 @@ export default function NewProjectPage() {
                           {selectedRepository.language}
                         </Badge>
                       </div>
-                      
+
                       <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                         {selectedRepository.description || 'No description available'}
                       </p>
@@ -339,12 +363,12 @@ export default function NewProjectPage() {
                           <Star className="w-3 h-3" />
                           <span>{selectedRepository.stars}</span>
                         </div>
-                        
+
                         <div className="flex items-center space-x-1">
                           <GitFork className="w-3 h-3" />
                           <span>{selectedRepository.forks}</span>
                         </div>
-                        
+
                         <div className="flex items-center space-x-1">
                           <Eye className="w-3 h-3" />
                           <span>{selectedRepository.watchers}</span>
@@ -398,44 +422,32 @@ export default function NewProjectPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Project Image</label>
-            <div className="flex items-center gap-4">
-              <div className="w-28 h-28 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden">
-                {projectImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={projectImageUrl} alt="Project" className="w-full h-full object-cover" />
-                ) : (
-                  <Briefcase className="w-8 h-8 text-muted-foreground" />
-                )}
-              </div>
-              <ProjectImageUploadButton onUploaded={({ url, publicId }) => { setProjectImageUrl(url); setProjectImagePublicId(publicId); }}>
-                Upload (1:1 crop)
-              </ProjectImageUploadButton>
-              {projectImageUrl && (
-                <Button type="button" variant="ghost" onClick={() => { setProjectImageUrl(""); setProjectImagePublicId("") }}>Remove</Button>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">Users crop manually with a 1:1 ratio in the upload dialog.</p>
-          </div>
-
-          <div>
             <label className="block text-sm font-medium mb-4">Technology Stack</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {TECH_OPTIONS.map((tech) => (
+              {(showAllTech ? TECH_OPTIONS : TECH_OPTIONS.slice(0, 9)).map((tech) => (
                 <button
                   key={tech}
                   type="button"
                   onClick={() => toggleTech(tech)}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${
-                    selectedTech.includes(tech)
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background border-border text-foreground hover:border-primary"
-                  }`}
+                  className={`px-4 py-2 rounded-lg border transition-colors ${selectedTech.includes(tech)
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background border-border text-foreground hover:border-primary"
+                    }`}
                 >
                   {tech}
                 </button>
               ))}
             </div>
+            {!showAllTech && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setShowAllTech(true)}
+                className="mt-3 w-full text-muted-foreground hover:text-foreground"
+              >
+                See more options...
+              </Button>
+            )}
           </div>
 
           <div>

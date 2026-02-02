@@ -25,6 +25,8 @@ const SKILLS = [
   "C++",
   "Go",
   "Rust",
+  "PHP",
+  "Laravel",
   "PostgreSQL",
   "MongoDB",
   "Firebase",
@@ -158,7 +160,7 @@ export default function EditProfilePage() {
             <div className="flex items-center gap-4">
               <Avatar className="w-20 h-20">
                 <AvatarImage src={avatarUrl || "/placeholder.svg"} className="object-cover" />
-                <AvatarFallback>{(user?.displayName || user?.email || 'U').slice(0,2).toUpperCase()}</AvatarFallback>
+                <AvatarFallback>{(user?.displayName || user?.email || 'U').slice(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="space-y-2">
                 <input
@@ -195,11 +197,10 @@ export default function EditProfilePage() {
                 <button
                   key={skill}
                   onClick={() => toggleSkill(skill)}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${
-                    selectedSkills.includes(skill)
+                  className={`px-4 py-2 rounded-lg border transition-colors ${selectedSkills.includes(skill)
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-background border-border text-foreground hover:border-primary"
-                  }`}
+                    }`}
                 >
                   {skill}
                 </button>

@@ -35,6 +35,7 @@ export default function GlowAIPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [chatMessage, setChatMessage] = useState("")
@@ -107,7 +108,35 @@ export default function GlowAIPage() {
 
     try {
       const historySnap = await getDoc(doc(db, 'glow_chat_history', user.uid))
-      const rawMessages = historySnap.exists() ? historySnap.data()?.messages || [] : []
+      const data = historySnap.exists() ? historySnap.data() : null
+
+      // Check for structured sessions first (new format)
+      if (data && data.sessions && Array.isArray(data.sessions) && data.sessions.length > 0) {
+        const loadedSessions = data.sessions.map((session: any) => ({
+          id: session.id,
+          title: session.title,
+          updatedAt: session.updatedAt?.toDate ? session.updatedAt.toDate() : new Date(session.updatedAt || Date.now()),
+          messages: (session.messages || []).map((msg: any) => ({
+            role: msg.role,
+            content: msg.content,
+            timestamp: msg.timestamp?.toDate ? msg.timestamp.toDate() : new Date(msg.timestamp || Date.now())
+          }))
+        }))
+
+        loadedSessions.sort((a: ChatSession, b: ChatSession) => b.updatedAt.getTime() - a.updatedAt.getTime())
+        setChatSessions(loadedSessions)
+
+        if (loadedSessions.length > 0 && !currentSessionId) {
+          setCurrentSessionId(loadedSessions[0].id)
+          setChatHistory(loadedSessions[0].messages)
+          setShowPagination(false)
+          setCurrentPage(1)
+        }
+        return
+      }
+
+      // Fallback: Legacy flat message list handling
+      const rawMessages = data?.messages || []
 
       if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
         setChatSessions([])
@@ -220,7 +249,7 @@ export default function GlowAIPage() {
           "messages": [
             {
               "role": "system",
-              "content": deepThinkMode 
+              "content": deepThinkMode
                 ? `${GLOW_AI_SYSTEM_PROMPT}\n\nIMPORTANT: You are in DeepThink mode. Provide thorough, detailed, and comprehensive responses. Analyze deeply, consider multiple perspectives, and give extensive explanations. Be as detailed and thorough as possible.`
                 : GLOW_AI_SYSTEM_PROMPT
             },
@@ -239,7 +268,7 @@ export default function GlowAIPage() {
         try {
           const errorData = await response.json();
           console.error('OpenRouter error details:', errorData);
-          
+
           // Try multiple error message fields
           if (errorData.message) {
             errorMessage = errorData.message;
@@ -254,7 +283,7 @@ export default function GlowAIPage() {
           } else if (errorData.details?.error?.message) {
             errorMessage = errorData.details.error.message;
           }
-          
+
           // Check for specific OpenRouter error types
           if (errorData.error?.type === 'provider_error' || errorData.error?.type === 'model_not_found') {
             errorMessage = errorData.error.message || 'The AI model is currently unavailable. Please try again later or switch to a different model.';
@@ -267,14 +296,14 @@ export default function GlowAIPage() {
         if (response.status === 429) {
           throw new Error('Rate limit exceeded. Please wait a moment before trying again.')
         }
-        
+
         // Show user-friendly error
         toast({
           title: "Error",
           description: errorMessage,
           variant: "destructive"
         });
-        
+
         throw new Error(errorMessage);
       }
 
@@ -284,8 +313,8 @@ export default function GlowAIPage() {
       if (data.choices && data.choices.length > 0) {
         const choice = data.choices[0]
         if (choice.message) {
-          assistantMessage = typeof choice.message.content === 'string' 
-            ? choice.message.content 
+          assistantMessage = typeof choice.message.content === 'string'
+            ? choice.message.content
             : choice.message.content?.[0]?.text || JSON.stringify(choice.message.content)
         } else if (choice.text) {
           assistantMessage = choice.text
@@ -299,19 +328,19 @@ export default function GlowAIPage() {
         assistantMessage = 'I received an unexpected response format. Please try again.'
       }
 
-      const assistantResponse: Message = { 
-        role: 'assistant', 
+      const assistantResponse: Message = {
+        role: 'assistant',
         content: assistantMessage,
         timestamp: new Date()
       }
-      
+
       const finalHistory = [...updatedHistory, assistantResponse]
       setChatHistory(finalHistory)
-      
+
       // Update current session or create new one
       if (currentSessionId) {
-        setChatSessions(prev => prev.map(s => 
-          s.id === currentSessionId 
+        setChatSessions(prev => prev.map(s =>
+          s.id === currentSessionId
             ? { ...s, messages: finalHistory, title: finalHistory[0]?.content?.substring(0, 50) || s.title, updatedAt: new Date() }
             : s
         ))
@@ -330,8 +359,8 @@ export default function GlowAIPage() {
       // Update current session immediately
       let updatedSessions = chatSessions
       if (currentSessionId) {
-        updatedSessions = chatSessions.map(s => 
-          s.id === currentSessionId 
+        updatedSessions = chatSessions.map(s =>
+          s.id === currentSessionId
             ? { ...s, messages: finalHistory, title: finalHistory.find(m => m.role === 'user')?.content?.substring(0, 50) || s.title, updatedAt: new Date() }
             : s
         )
@@ -354,19 +383,19 @@ export default function GlowAIPage() {
     } catch (error) {
       console.error('AI Chat error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Sorry, I encountered an error. Please try again.'
-      const errorResponse: Message = { 
-        role: 'assistant', 
+      const errorResponse: Message = {
+        role: 'assistant',
         content: errorMessage,
         timestamp: new Date()
       }
       const finalHistory = [...updatedHistory, errorResponse]
       setChatHistory(finalHistory)
-      
+
       // Update session or create new one
       let updatedSessions = chatSessions
       if (currentSessionId) {
-        updatedSessions = chatSessions.map(s => 
-          s.id === currentSessionId 
+        updatedSessions = chatSessions.map(s =>
+          s.id === currentSessionId
             ? { ...s, messages: finalHistory, updatedAt: new Date() }
             : s
         )
@@ -382,7 +411,7 @@ export default function GlowAIPage() {
         setChatSessions(updatedSessions)
         setCurrentSessionId(newSession.id)
       }
-      
+
       await saveChatHistory(finalHistory, updatedSessions)
     } finally {
       setIsLoading(false)
@@ -391,19 +420,25 @@ export default function GlowAIPage() {
 
   const saveChatHistory = async (messages: Message[], sessions?: ChatSession[]) => {
     if (!user) return
-    
+
     try {
-      // Collect all messages across sessions to persist complete history
+      // Collect all messages across sessions to persist complete history for backup
       const allMessages: Message[] = []
       const sessionsToUse = sessions || chatSessions
 
+      // Update the current session timestamp
+      const updatedSessions = sessionsToUse.map(session => {
+        // If this is the current session (or matches by ID if we could pass context)
+        // We ensure timestamps are valid Dates
+        return {
+          ...session,
+          updatedAt: session.updatedAt instanceof Date ? session.updatedAt : new Date(session.updatedAt || Date.now())
+        }
+      })
+
       if (sessionsToUse.length > 0) {
         sessionsToUse.forEach(session => {
-          if (currentSessionId === session.id) {
-            allMessages.push(...messages)
-          } else {
-            allMessages.push(...session.messages)
-          }
+          allMessages.push(...session.messages)
         })
       } else {
         allMessages.push(...messages)
@@ -416,17 +451,29 @@ export default function GlowAIPage() {
         return timeA - timeB
       })
 
-      // Persist directly to Firestore with authenticated client (bypasses API route issues)
+      // Prepare sessions for Firestore (convert Dates to Timestamps)
+      const sessionsForDb = updatedSessions.map(session => ({
+        id: session.id,
+        title: session.title,
+        updatedAt: Timestamp.fromDate(session.updatedAt),
+        messages: session.messages.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+          timestamp: Timestamp.fromDate(new Date(msg.timestamp || Date.now()))
+        }))
+      }))
+
+      // Persist to Firestore with authenticated client
       await setDoc(
         doc(db, 'glow_chat_history', user.uid),
         {
           userId: user.uid,
+          sessions: sessionsForDb,
+          // Keep flat messages list for backward compatibility/backup
           messages: allMessages.map(msg => ({
             role: msg.role,
             content: msg.content,
-            timestamp: msg.timestamp instanceof Timestamp
-              ? msg.timestamp
-              : Timestamp.fromDate(new Date(msg.timestamp || Date.now()))
+            timestamp: Timestamp.fromDate(new Date(msg.timestamp || Date.now()))
           })),
           updatedAt: Timestamp.now()
         },
@@ -454,13 +501,13 @@ export default function GlowAIPage() {
 
   const regenerateResponse = async (messageIndex: number) => {
     if (messageIndex === 0 || chatHistory[messageIndex - 1].role !== 'user') return
-    
+
     const userMessage = chatHistory[messageIndex - 1]
     const previousHistory = chatHistory.slice(0, messageIndex - 1)
     const updatedHistory = [...previousHistory, userMessage]
-    
+
     setIsLoading(true)
-    
+
     try {
       const response = await fetch("/api/openrouter", {
         method: "POST",
@@ -486,12 +533,12 @@ export default function GlowAIPage() {
 
       const data = await response.json()
       let assistantMessage = ''
-      
+
       if (data.choices && data.choices.length > 0) {
         const choice = data.choices[0]
         if (choice.message) {
-          assistantMessage = typeof choice.message.content === 'string' 
-            ? choice.message.content 
+          assistantMessage = typeof choice.message.content === 'string'
+            ? choice.message.content
             : choice.message.content?.[0]?.text || JSON.stringify(choice.message.content)
         }
       }
@@ -499,20 +546,20 @@ export default function GlowAIPage() {
       const newResponse: Message = { role: 'assistant', content: assistantMessage, timestamp: new Date() }
       const newHistory = [...updatedHistory, newResponse, ...chatHistory.slice(messageIndex + 1)]
       setChatHistory(newHistory)
-      
+
       // Update the current session with new history
       let updatedSessions = chatSessions
       if (currentSessionId) {
-        updatedSessions = chatSessions.map(s => 
-          s.id === currentSessionId 
+        updatedSessions = chatSessions.map(s =>
+          s.id === currentSessionId
             ? { ...s, messages: newHistory, updatedAt: new Date() }
             : s
         )
         setChatSessions(updatedSessions)
       }
-      
+
       await saveChatHistory(newHistory, updatedSessions)
-      
+
       toast({
         title: "Response regenerated",
         description: "AI response has been regenerated",
@@ -581,7 +628,7 @@ export default function GlowAIPage() {
   const handleShare = async (messageIndex: number) => {
     const message = chatHistory[messageIndex]
     const shareText = `${message.content}\n\n— GLOW AI by DevSpace`
-    
+
     if (navigator.share) {
       try {
         await navigator.share({
@@ -620,28 +667,28 @@ export default function GlowAIPage() {
       ...newHistory[editingMessageIndex],
       content: editedMessageContent
     }
-    
+
     setChatHistory(newHistory)
     setEditingMessageIndex(null)
     setEditedMessageContent("")
-    
+
     // Update the current session with edited history
     let updatedSessions = chatSessions
     if (currentSessionId) {
-      updatedSessions = chatSessions.map(s => 
-        s.id === currentSessionId 
+      updatedSessions = chatSessions.map(s =>
+        s.id === currentSessionId
           ? { ...s, messages: newHistory, updatedAt: new Date() }
           : s
       )
       setChatSessions(updatedSessions)
     }
-    
+
     await saveChatHistory(newHistory, updatedSessions)
-    
+
     // If it's a user message and there's a response after it, regenerate that response
-    if (newHistory[editingMessageIndex].role === 'user' && 
-        editingMessageIndex + 1 < newHistory.length && 
-        newHistory[editingMessageIndex + 1].role === 'assistant') {
+    if (newHistory[editingMessageIndex].role === 'user' &&
+      editingMessageIndex + 1 < newHistory.length &&
+      newHistory[editingMessageIndex + 1].role === 'assistant') {
       await regenerateResponse(editingMessageIndex + 1)
     } else {
       toast({
@@ -690,10 +737,10 @@ export default function GlowAIPage() {
 
         // Send image to AI for processing using OpenRouter's image format
         setIsLoading(true)
-        const userMessage: Message = { 
-          role: 'user', 
+        const userMessage: Message = {
+          role: 'user',
           content: 'Please analyze this image and describe what you see.',
-          timestamp: new Date() 
+          timestamp: new Date()
         }
         const updatedHistory = [...chatHistory, userMessage]
         setChatHistory(updatedHistory)
@@ -709,7 +756,7 @@ export default function GlowAIPage() {
               "messages": [
                 {
                   "role": "system",
-                  "content": deepThinkMode 
+                  "content": deepThinkMode
                     ? `${GLOW_AI_SYSTEM_PROMPT}\n\nIMPORTANT: You are in DeepThink mode. Provide thorough, detailed, and comprehensive responses. Analyze deeply, consider multiple perspectives, and give extensive explanations. Be as detailed and thorough as possible.`
                     : GLOW_AI_SYSTEM_PROMPT
                 },
@@ -746,26 +793,26 @@ export default function GlowAIPage() {
           if (data.choices && data.choices.length > 0) {
             const choice = data.choices[0]
             if (choice.message) {
-              assistantMessage = typeof choice.message.content === 'string' 
-                ? choice.message.content 
+              assistantMessage = typeof choice.message.content === 'string'
+                ? choice.message.content
                 : choice.message.content?.[0]?.text || JSON.stringify(choice.message.content)
             }
           }
 
-          const assistantResponse: Message = { 
-            role: 'assistant', 
+          const assistantResponse: Message = {
+            role: 'assistant',
             content: assistantMessage,
             timestamp: new Date()
           }
-          
+
           const finalHistory = [...updatedHistory, assistantResponse]
           setChatHistory(finalHistory)
-          
+
           // Update current session or create new one
           let updatedSessions = chatSessions
           if (currentSessionId) {
-            updatedSessions = chatSessions.map(s => 
-              s.id === currentSessionId 
+            updatedSessions = chatSessions.map(s =>
+              s.id === currentSessionId
                 ? { ...s, messages: finalHistory, title: finalHistory.find(m => m.role === 'user')?.content?.substring(0, 50) || s.title, updatedAt: new Date() }
                 : s
             )
@@ -783,7 +830,7 @@ export default function GlowAIPage() {
           }
 
           await saveChatHistory(finalHistory, updatedSessions)
-          
+
           toast({
             title: "Image analyzed",
             description: "GLOW has analyzed your image",
@@ -815,13 +862,13 @@ export default function GlowAIPage() {
         const fileContent = await file.text()
         const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'txt'
         const fileName = file.name
-        
+
         // Send file content to AI
         setIsLoading(true)
-        const userMessage: Message = { 
-          role: 'user', 
+        const userMessage: Message = {
+          role: 'user',
           content: `I've uploaded a file: "${fileName}" (${fileExtension} file). Please analyze it:\n\n\`\`\`${fileExtension}\n${fileContent}\n\`\`\``,
-          timestamp: new Date() 
+          timestamp: new Date()
         }
         const updatedHistory = [...chatHistory, userMessage]
         setChatHistory(updatedHistory)
@@ -837,7 +884,7 @@ export default function GlowAIPage() {
               "messages": [
                 {
                   "role": "system",
-                  "content": deepThinkMode 
+                  "content": deepThinkMode
                     ? `${GLOW_AI_SYSTEM_PROMPT}\n\nIMPORTANT: You are in DeepThink mode. Provide thorough, detailed, and comprehensive responses. Analyze deeply, consider multiple perspectives, and give extensive explanations. Be as detailed and thorough as possible.`
                     : GLOW_AI_SYSTEM_PROMPT
                 },
@@ -860,26 +907,26 @@ export default function GlowAIPage() {
           if (data.choices && data.choices.length > 0) {
             const choice = data.choices[0]
             if (choice.message) {
-              assistantMessage = typeof choice.message.content === 'string' 
-                ? choice.message.content 
+              assistantMessage = typeof choice.message.content === 'string'
+                ? choice.message.content
                 : choice.message.content?.[0]?.text || JSON.stringify(choice.message.content)
             }
           }
 
-          const assistantResponse: Message = { 
-            role: 'assistant', 
+          const assistantResponse: Message = {
+            role: 'assistant',
             content: assistantMessage,
             timestamp: new Date()
           }
-          
+
           const finalHistory = [...updatedHistory, assistantResponse]
           setChatHistory(finalHistory)
-          
+
           // Update current session or create new one
           let updatedSessions = chatSessions
           if (currentSessionId) {
-            updatedSessions = chatSessions.map(s => 
-              s.id === currentSessionId 
+            updatedSessions = chatSessions.map(s =>
+              s.id === currentSessionId
                 ? { ...s, messages: finalHistory, title: finalHistory.find(m => m.role === 'user')?.content?.substring(0, 50) || s.title, updatedAt: new Date() }
                 : s
             )
@@ -897,7 +944,7 @@ export default function GlowAIPage() {
           }
 
           await saveChatHistory(finalHistory, updatedSessions)
-          
+
           toast({
             title: "File analyzed",
             description: `GLOW has analyzed your ${fileExtension} file`,
@@ -943,8 +990,8 @@ export default function GlowAIPage() {
     setDeepThinkMode(!deepThinkMode)
     toast({
       title: deepThinkMode ? "DeepThink disabled" : "DeepThink enabled",
-      description: deepThinkMode 
-        ? "Switched to standard mode" 
+      description: deepThinkMode
+        ? "Switched to standard mode"
         : "GLOW will provide more thorough and detailed analysis",
     })
   }
@@ -988,10 +1035,10 @@ export default function GlowAIPage() {
 
       repoContext += `Please help me understand this repository. What does it do? What are its main features? How can I get started with it?`
 
-      const userMessage: Message = { 
-        role: 'user', 
+      const userMessage: Message = {
+        role: 'user',
         content: repoContext,
-        timestamp: new Date() 
+        timestamp: new Date()
       }
       const updatedHistory = [...chatHistory, userMessage]
       setChatHistory(updatedHistory)
@@ -1007,7 +1054,7 @@ export default function GlowAIPage() {
           "messages": [
             {
               "role": "system",
-              "content": deepThinkMode 
+              "content": deepThinkMode
                 ? `${GLOW_AI_SYSTEM_PROMPT}\n\nIMPORTANT: You are in DeepThink mode. Provide thorough, detailed, and comprehensive responses. Analyze deeply, consider multiple perspectives, and give extensive explanations. Be as detailed and thorough as possible.`
                 : GLOW_AI_SYSTEM_PROMPT
             },
@@ -1026,7 +1073,7 @@ export default function GlowAIPage() {
         try {
           const errorData = await response.json();
           console.error('OpenRouter error details (GitHub repo):', errorData);
-          
+
           // Try multiple error message fields
           if (errorData.message) {
             errorMessage = errorData.message;
@@ -1041,7 +1088,7 @@ export default function GlowAIPage() {
           } else if (errorData.details?.error?.message) {
             errorMessage = errorData.details.error.message;
           }
-          
+
           // Check for specific OpenRouter error types
           if (errorData.error?.type === 'provider_error' || errorData.error?.type === 'model_not_found') {
             errorMessage = errorData.error.message || 'The AI model is currently unavailable. Please try again later.';
@@ -1054,14 +1101,14 @@ export default function GlowAIPage() {
         if (response.status === 429) {
           errorMessage = 'Rate limit exceeded. Please wait a moment before trying again.';
         }
-        
+
         // Show user-friendly error
         toast({
           title: "Error processing repository",
           description: errorMessage,
           variant: "destructive"
         });
-        
+
         throw new Error(errorMessage);
       }
 
@@ -1070,26 +1117,26 @@ export default function GlowAIPage() {
       if (data.choices && data.choices.length > 0) {
         const choice = data.choices[0]
         if (choice.message) {
-          assistantMessage = typeof choice.message.content === 'string' 
-            ? choice.message.content 
+          assistantMessage = typeof choice.message.content === 'string'
+            ? choice.message.content
             : choice.message.content?.[0]?.text || JSON.stringify(choice.message.content)
         }
       }
 
-      const assistantResponse: Message = { 
-        role: 'assistant', 
+      const assistantResponse: Message = {
+        role: 'assistant',
         content: assistantMessage,
         timestamp: new Date()
       }
-      
+
       const finalHistory = [...updatedHistory, assistantResponse]
       setChatHistory(finalHistory)
-      
+
       // Update current session or create new one
       let updatedSessions = chatSessions
       if (currentSessionId) {
-        updatedSessions = chatSessions.map(s => 
-          s.id === currentSessionId 
+        updatedSessions = chatSessions.map(s =>
+          s.id === currentSessionId
             ? { ...s, messages: finalHistory, title: finalHistory.find(m => m.role === 'user')?.content?.substring(0, 50) || s.title, updatedAt: new Date() }
             : s
         )
@@ -1107,7 +1154,7 @@ export default function GlowAIPage() {
       }
 
       await saveChatHistory(finalHistory, updatedSessions)
-      
+
       toast({
         title: "Repository added",
         description: `Added ${repository.fullName} to the chat`,
@@ -1140,7 +1187,7 @@ export default function GlowAIPage() {
       }
       return filtered
     })
-    
+
     toast({
       title: "Deleted",
       description: "Conversation deleted",
@@ -1151,7 +1198,7 @@ export default function GlowAIPage() {
     const session = chatSessions.find(s => s.id === sessionId)
     if (!session) return
 
-    const text = session.messages.map(msg => 
+    const text = session.messages.map(msg =>
       `${msg.role === 'user' ? 'You' : 'GLOW'}: ${msg.content}`
     ).join('\n\n')
 
@@ -1211,9 +1258,13 @@ export default function GlowAIPage() {
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
-      <div className={`${
-        sidebarCollapsed ? 'w-16' : 'w-64'
-      } bg-card border-r border-border flex flex-col transition-all duration-300`}>
+      <div className={`
+        fixed inset-y-0 left-0 z-50 h-full bg-card border-r border-border flex flex-col transition-transform duration-300
+        md:relative md:translate-x-0
+        ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'}
+        w-64
+      `}>
         {/* Logo and Toggle */}
         <div className="h-14 px-4 border-b border-border flex items-center justify-between">
           {!sidebarCollapsed && (
@@ -1231,7 +1282,13 @@ export default function GlowAIPage() {
             </div>
           )}
           <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            onClick={() => {
+              if (window.innerWidth < 768) {
+                setIsMobileSidebarOpen(false)
+              } else {
+                setSidebarCollapsed(!sidebarCollapsed)
+              }
+            }}
             className="p-2 hover:bg-muted rounded transition-colors text-foreground"
           >
             {sidebarCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
@@ -1262,9 +1319,8 @@ export default function GlowAIPage() {
                 {groupedSessions.today.map(session => (
                   <div
                     key={session.id}
-                    className={`w-full px-2 py-2 rounded text-left text-sm hover:bg-muted transition-colors mb-1 relative session-menu ${
-                      currentSessionId === session.id ? 'bg-muted' : ''
-                    }`}
+                    className={`w-full px-2 py-2 rounded text-left text-sm hover:bg-muted transition-colors mb-1 relative session-menu ${currentSessionId === session.id ? 'bg-muted' : ''
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <button
@@ -1331,9 +1387,8 @@ export default function GlowAIPage() {
                       setShowPagination(false)
                       setCurrentPage(1)
                     }}
-                    className={`w-full px-2 py-2 rounded text-left text-sm hover:bg-muted transition-colors mb-1 ${
-                      currentSessionId === session.id ? 'bg-muted' : ''
-                    }`}
+                    className={`w-full px-2 py-2 rounded text-left text-sm hover:bg-muted transition-colors mb-1 ${currentSessionId === session.id ? 'bg-muted' : ''
+                      }`}
                   >
                     <span className="truncate text-foreground">{session.title}</span>
                   </button>
@@ -1353,9 +1408,8 @@ export default function GlowAIPage() {
                       setShowPagination(false)
                       setCurrentPage(1)
                     }}
-                    className={`w-full px-2 py-2 rounded text-left text-sm hover:bg-muted transition-colors mb-1 ${
-                      currentSessionId === session.id ? 'bg-muted' : ''
-                    }`}
+                    className={`w-full px-2 py-2 rounded text-left text-sm hover:bg-muted transition-colors mb-1 ${currentSessionId === session.id ? 'bg-muted' : ''
+                      }`}
                   >
                     <span className="truncate text-foreground">{session.title}</span>
                   </button>
@@ -1377,9 +1431,8 @@ export default function GlowAIPage() {
                       setShowPagination(false)
                       setCurrentPage(1)
                     }}
-                    className={`w-full px-2 py-2 rounded text-left text-sm hover:bg-muted transition-colors mb-1 ${
-                      currentSessionId === session.id ? 'bg-muted' : ''
-                    }`}
+                    className={`w-full px-2 py-2 rounded text-left text-sm hover:bg-muted transition-colors mb-1 ${currentSessionId === session.id ? 'bg-muted' : ''
+                      }`}
                   >
                     <span className="truncate text-foreground">{session.title}</span>
                   </button>
@@ -1400,9 +1453,9 @@ export default function GlowAIPage() {
           {!sidebarCollapsed && (
             <div className="flex items-center gap-3">
               <Avatar className="w-8 h-8 flex-shrink-0">
-                <AvatarImage 
-                  src={userProfile?.avatar_url || user?.photoURL || "/placeholder.svg"} 
-                  className="object-cover" 
+                <AvatarImage
+                  src={userProfile?.avatar_url || user?.photoURL || "/placeholder.svg"}
+                  className="object-cover"
                 />
                 <AvatarFallback className="text-xs">
                   {(userProfile?.username || user?.displayName || user?.email?.split('@')[0] || 'U').slice(0, 2).toUpperCase()}
@@ -1419,20 +1472,47 @@ export default function GlowAIPage() {
         </div>
       </div>
 
+      {/* Mobile Sidebar Overlay */}
+      {
+        isMobileSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )
+      }
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col bg-background">
         {/* Header */}
-        <div className="h-14 border-b border-border flex items-center justify-center px-4 relative">
-          <h1 className="text-sm font-medium text-foreground">
+        <div className="h-14 border-b border-border flex items-center justify-between px-4 relative">
+          <button
+            onClick={() => setIsMobileSidebarOpen(true)}
+            className="md:hidden p-2 hover:bg-muted rounded text-foreground mr-2"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
+          <h1 className="text-sm font-medium text-foreground truncate flex-1 text-center md:text-left">
             {chatSessions.find(s => s.id === currentSessionId)?.title || "New Chat"}
           </h1>
-          <button
-            onClick={handleUpload}
-            className="ml-auto p-2 hover:bg-muted rounded transition-colors text-foreground"
-            title="Upload file"
-          >
-            <Upload className="w-4 h-4" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleUpload}
+              className="p-2 hover:bg-muted rounded transition-colors text-foreground"
+              title="Upload file"
+            >
+              <Upload className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => router.push('/')}
+              className="md:hidden p-2 hover:bg-muted rounded text-foreground"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
           <input
             ref={fileInputRef}
             type="file"
@@ -1465,151 +1545,151 @@ export default function GlowAIPage() {
             </div>
           ) : (
             <>
-            {paginatedMessages.map((message, index) => {
-              const actualIndex = showPagination && chatHistory.length > messagesPerPage
-                ? (currentPage - 1) * messagesPerPage + index
-                : index
-              return (
-              <div
-                key={index}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                {message.role === 'user' ? (
-                  <div className="max-w-[70%]">
-                    {editingMessageIndex === index ? (
-                      <div className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm">
-                        <textarea
-                          value={editedMessageContent}
-                          onChange={(e) => setEditedMessageContent(e.target.value)}
-                          className="w-full bg-transparent text-primary-foreground resize-none focus:outline-none"
-                          rows={3}
-                          autoFocus
-                        />
-                        <div className="flex items-center gap-2 mt-2 justify-end">
+              {paginatedMessages.map((message, index) => {
+                const actualIndex = showPagination && chatHistory.length > messagesPerPage
+                  ? (currentPage - 1) * messagesPerPage + index
+                  : index
+                return (
+                  <div
+                    key={index}
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {message.role === 'user' ? (
+                      <div className="max-w-[70%]">
+                        {editingMessageIndex === index ? (
+                          <div className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm">
+                            <textarea
+                              value={editedMessageContent}
+                              onChange={(e) => setEditedMessageContent(e.target.value)}
+                              className="w-full bg-transparent text-primary-foreground resize-none focus:outline-none"
+                              rows={3}
+                              autoFocus
+                            />
+                            <div className="flex items-center gap-2 mt-2 justify-end">
+                              <button
+                                onClick={saveEdit}
+                                className="px-2 py-1 bg-primary-foreground/20 hover:bg-primary-foreground/30 rounded text-xs transition-colors flex items-center gap-1"
+                              >
+                                <Check className="w-3 h-3" />
+                                Save
+                              </button>
+                              <button
+                                onClick={cancelEdit}
+                                className="px-2 py-1 bg-primary-foreground/20 hover:bg-primary-foreground/30 rounded text-xs transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm">
+                              {message.content}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 justify-end">
+                              <button
+                                onClick={() => copyToClipboard(message.content)}
+                                className="p-1 hover:bg-muted rounded transition-colors"
+                                title="Copy"
+                              >
+                                <Copy className="w-3 h-3 text-muted-foreground" />
+                              </button>
+                              <button
+                                onClick={() => handleEdit(index)}
+                                className="p-1 hover:bg-muted rounded transition-colors"
+                                title="Edit"
+                              >
+                                <Pencil className="w-3 h-3 text-muted-foreground" />
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="max-w-[85%]">
+                        <div className="text-sm leading-relaxed prose dark:prose-invert max-w-none prose-p:text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-code:text-foreground">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2">
                           <button
-                            onClick={saveEdit}
-                            className="px-2 py-1 bg-primary-foreground/20 hover:bg-primary-foreground/30 rounded text-xs transition-colors flex items-center gap-1"
+                            onClick={() => copyToClipboard(message.content)}
+                            className="p-1 hover:bg-muted rounded transition-colors"
+                            title="Copy"
                           >
-                            <Check className="w-3 h-3" />
-                            Save
+                            <Copy className="w-4 h-4 text-muted-foreground" />
                           </button>
                           <button
-                            onClick={cancelEdit}
-                            className="px-2 py-1 bg-primary-foreground/20 hover:bg-primary-foreground/30 rounded text-xs transition-colors"
+                            onClick={() => regenerateResponse(index)}
+                            disabled={isLoading}
+                            className="p-1 hover:bg-muted rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Regenerate"
                           >
-                            Cancel
+                            <RefreshCw className={`w-4 h-4 text-muted-foreground ${isLoading ? 'animate-spin' : ''}`} />
+                          </button>
+                          <button
+                            onClick={() => handleLike(index)}
+                            className={`p-1 hover:bg-muted rounded transition-colors ${likedMessages.has(index) ? 'bg-primary/20' : ''}`}
+                            title="Like"
+                          >
+                            <ThumbsUp className={`w-4 h-4 ${likedMessages.has(index) ? 'text-primary fill-primary' : 'text-muted-foreground'}`} />
+                          </button>
+                          <button
+                            onClick={() => handleDislike(index)}
+                            className={`p-1 hover:bg-muted rounded transition-colors ${dislikedMessages.has(index) ? 'bg-destructive/20' : ''}`}
+                            title="Dislike"
+                          >
+                            <ThumbsDown className={`w-4 h-4 ${dislikedMessages.has(index) ? 'text-destructive fill-destructive' : 'text-muted-foreground'}`} />
+                          </button>
+                          <button
+                            onClick={() => handleShare(index)}
+                            className="p-1 hover:bg-muted rounded transition-colors"
+                            title="Share"
+                          >
+                            <Share className="w-4 h-4 text-muted-foreground" />
                           </button>
                         </div>
                       </div>
-                    ) : (
-                      <>
-                        <div className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm">
-                          {message.content}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1 justify-end">
-                          <button
-                            onClick={() => copyToClipboard(message.content)}
-                            className="p-1 hover:bg-muted rounded transition-colors" 
-                            title="Copy"
-                          >
-                            <Copy className="w-3 h-3 text-muted-foreground" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(index)}
-                            className="p-1 hover:bg-muted rounded transition-colors" 
-                            title="Edit"
-                          >
-                            <Pencil className="w-3 h-3 text-muted-foreground" />
-                          </button>
-                        </div>
-                      </>
                     )}
                   </div>
-                ) : (
-                  <div className="max-w-[85%]">
-                    <div className="text-sm leading-relaxed prose dark:prose-invert max-w-none prose-p:text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-code:text-foreground">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {message.content}
-                      </ReactMarkdown>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <button
-                        onClick={() => copyToClipboard(message.content)}
-                        className="p-1 hover:bg-muted rounded transition-colors"
-                        title="Copy"
-                      >
-                        <Copy className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                      <button
-                        onClick={() => regenerateResponse(index)}
-                        disabled={isLoading}
-                        className="p-1 hover:bg-muted rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Regenerate"
-                      >
-                        <RefreshCw className={`w-4 h-4 text-muted-foreground ${isLoading ? 'animate-spin' : ''}`} />
-                      </button>
-                      <button
-                        onClick={() => handleLike(index)}
-                        className={`p-1 hover:bg-muted rounded transition-colors ${likedMessages.has(index) ? 'bg-primary/20' : ''}`}
-                        title="Like"
-                      >
-                        <ThumbsUp className={`w-4 h-4 ${likedMessages.has(index) ? 'text-primary fill-primary' : 'text-muted-foreground'}`} />
-                      </button>
-                      <button
-                        onClick={() => handleDislike(index)}
-                        className={`p-1 hover:bg-muted rounded transition-colors ${dislikedMessages.has(index) ? 'bg-destructive/20' : ''}`}
-                        title="Dislike"
-                      >
-                        <ThumbsDown className={`w-4 h-4 ${dislikedMessages.has(index) ? 'text-destructive fill-destructive' : 'text-muted-foreground'}`} />
-                      </button>
-                      <button
-                        onClick={() => handleShare(index)}
-                        className="p-1 hover:bg-muted rounded transition-colors"
-                        title="Share"
-                      >
-                        <Share className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              )
-            })}
-            {showPagination && chatHistory.length > messagesPerPage && (
-              <div className="flex items-center justify-center gap-2 mt-4 pb-4">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 text-sm bg-muted hover:bg-muted/80 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <span className="text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 text-sm bg-muted hover:bg-muted/80 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            )}
-            {!showPagination && chatHistory.length > messagesPerPage && (
-              <div className="flex items-center justify-center mt-4 pb-4">
-                <button
-                  onClick={() => {
-                    setShowPagination(true)
-                    setCurrentPage(Math.ceil(chatHistory.length / messagesPerPage))
-                    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
-                  }}
-                  className="px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded transition-colors text-muted-foreground"
-                >
-                  Show older messages
-                </button>
-              </div>
-            )}
+                )
+              })}
+              {showPagination && chatHistory.length > messagesPerPage && (
+                <div className="flex items-center justify-center gap-2 mt-4 pb-4">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm bg-muted hover:bg-muted/80 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm bg-muted hover:bg-muted/80 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+              {!showPagination && chatHistory.length > messagesPerPage && (
+                <div className="flex items-center justify-center mt-4 pb-4">
+                  <button
+                    onClick={() => {
+                      setShowPagination(true)
+                      setCurrentPage(Math.ceil(chatHistory.length / messagesPerPage))
+                      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+                    }}
+                    className="px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded transition-colors text-muted-foreground"
+                  >
+                    Show older messages
+                  </button>
+                </div>
+              )}
             </>
           )}
 
@@ -1641,17 +1721,16 @@ export default function GlowAIPage() {
                   }
                 }}
                 placeholder="Message GLOW"
-                className="w-full bg-muted border border-border rounded-lg px-32 py-3 pr-24 text-sm focus:outline-none focus:border-primary text-foreground placeholder-muted-foreground"
+                className="w-full bg-muted border border-border rounded-lg pl-28 pr-28 py-3 text-sm focus:outline-none focus:border-primary text-foreground placeholder-muted-foreground"
                 disabled={isLoading}
               />
               <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 <button
                   onClick={handleDeepThink}
-                  className={`px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 border ${
-                    deepThinkMode 
-                      ? 'bg-primary/20 border-primary text-primary hover:bg-primary/30' 
-                      : 'bg-background hover:bg-muted/80 border-border'
-                  }`}
+                  className={`px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 border ${deepThinkMode
+                    ? 'bg-primary/20 border-primary text-primary hover:bg-primary/30'
+                    : 'bg-background hover:bg-muted/80 border-border'
+                    }`}
                   title="DeepThink mode"
                 >
                   <Brain className={`w-3 h-3 ${deepThinkMode ? 'fill-current' : ''}`} />
@@ -1697,6 +1776,6 @@ export default function GlowAIPage() {
         onClose={() => setShowGitHubDialog(false)}
         onSelect={handleGitHubRepoSelect}
       />
-    </div>
+    </div >
   )
 }

@@ -24,11 +24,11 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, X, Search, Github } from "lucide-react"
+import { ArrowLeft, X, Search, Github, Clock, UserPlus } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { UniversalNav } from "@/components/universal-nav"
-import { getRepoCollaborators } from "@/lib/github-utils"
+import { getRepoCollaborators, parseGitHubUrl } from "@/lib/github-utils"
 import { approveJourneyEntry, rejectJourneyEntry } from "@/lib/journey-utils"
 
 interface Collaborator {
@@ -43,6 +43,16 @@ interface UserData {
   username: string
   avatar_url?: string
   email?: string
+  githubUsername?: string
+  githubConnected?: boolean
+}
+
+interface GitHubInvitation {
+  id: string
+  invitee_user_id: string
+  github_username: string
+  status: string
+  invited_at: any
 }
 
 export default function CollaboratorsPage() {
@@ -61,6 +71,8 @@ export default function CollaboratorsPage() {
   const [syncing, setSyncing] = useState(false)
   const [pendingEntries, setPendingEntries] = useState<any[]>([])
   const [lastSync, setLastSync] = useState<Date | null>(null)
+  const [pendingGitHubInvites, setPendingGitHubInvites] = useState<GitHubInvitation[]>([])
+  const [inviting, setInviting] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -124,7 +136,17 @@ export default function CollaboratorsPage() {
       setPendingEntries(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     })
 
-    return () => { unsubReq(); unsubEntries() }
+    // Listen for pending GitHub invitations
+    const qGitHubInvites = query(
+      collection(db, 'github_invitations'),
+      where('project_id', '==', projectId),
+      where('status', '==', 'pending')
+    )
+    const unsubGitHubInvites = onSnapshot(qGitHubInvites, (snap) => {
+      setPendingGitHubInvites(snap.docs.map((d) => ({ id: d.id, ...d.data() } as GitHubInvitation)))
+    })
+
+    return () => { unsubReq(); unsubEntries(); unsubGitHubInvites() }
   }, [projectId])
 
   const searchUsers = async () => {
@@ -135,7 +157,7 @@ export default function CollaboratorsPage() {
 
     // Extract search term (remove @ if present at start)
     const searchTerm = searchQuery.startsWith("@") ? searchQuery.slice(1) : searchQuery
-    
+
     if (!searchTerm.trim()) {
       setSearchResults([])
       return
@@ -145,10 +167,10 @@ export default function CollaboratorsPage() {
     // Firestore prefix queries only work for exact prefixes, so we need to fetch and filter
     const usersRef = collection(db, "users")
     const snapshot = await getDocs(usersRef)
-    
+
     const searchLower = searchTerm.toLowerCase().trim()
     const existingCollaboratorIds = collaborators.map((c) => c.user_id)
-    
+
     const results = snapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() } as any))
       .filter((u: any) => {
@@ -156,15 +178,15 @@ export default function CollaboratorsPage() {
         if (u.id === user?.uid || u.id === project?.owner_id || existingCollaboratorIds.includes(u.id)) {
           return false
         }
-        
+
         // Case-insensitive substring matching in username, displayName, or email
         const username = (u.username || "").toLowerCase()
         const displayName = (u.displayName || "").toLowerCase()
         const email = (u.email || "").toLowerCase()
-        
-        return username.includes(searchLower) || 
-               displayName.includes(searchLower) || 
-               email.includes(searchLower)
+
+        return username.includes(searchLower) ||
+          displayName.includes(searchLower) ||
+          email.includes(searchLower)
       })
 
     setSearchResults(results)
@@ -195,6 +217,55 @@ export default function CollaboratorsPage() {
 
     setSearchQuery("")
     setSearchResults([])
+  }
+
+  const inviteViaGitHub = async (inviteeUserId: string, permission: "push" | "pull" | "admin" = "push") => {
+    if (!user || !project) return
+
+    setInviting(inviteeUserId)
+    try {
+      const response = await fetch('/api/github/collaborators/invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.uid,
+        },
+        body: JSON.stringify({
+          projectId,
+          inviteeUserId,
+          permission,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        alert(result.error || 'Failed to send invite')
+        return
+      }
+
+      if (result.alreadyCollaborator) {
+        alert(`${result.message} - They have been added as a collaborator.`)
+      } else {
+        alert('GitHub invitation sent! They will receive a notification on GitHub.')
+      }
+
+      setSearchQuery("")
+      setSearchResults([])
+    } catch (error) {
+      console.error('Error inviting via GitHub:', error)
+      alert('Failed to send GitHub invite')
+    } finally {
+      setInviting(null)
+    }
+  }
+
+  const cancelGitHubInvite = async (inviteId: string) => {
+    try {
+      await deleteDoc(doc(db, 'github_invitations', inviteId))
+    } catch (error) {
+      console.error('Error canceling invite:', error)
+    }
   }
 
   const removeCollaborator = async (collabId: string) => {
@@ -250,185 +321,242 @@ export default function CollaboratorsPage() {
     <div className="min-h-screen bg-background">
       <UniversalNav />
       <div className="max-w-7xl mx-auto px-4 py-8">
-      <Button variant="ghost" asChild className="mb-6">
-        <Link href={`/projects/${projectId}`}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Project
-        </Link>
-      </Button>
+        <Button variant="ghost" asChild className="mb-6">
+          <Link href={`/projects/${projectId}`}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Project
+          </Link>
+        </Button>
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Collaborators</h1>
-        <p className="text-muted-foreground">Manage who can contribute to {project.title}</p>
-        {project.collaboration_type && (
-          <p className="text-xs text-muted-foreground mt-1">Mode: <span className="font-medium">{project.collaboration_type}</span></p>
-        )}
-      </div>
-
-      {project.collaboration_type === 'authorized' && project.collaboration_sync_github && (
-        <Card className="p-6 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold mb-1">Sync GitHub Collaborators</h3>
-              <p className="text-sm text-muted-foreground">Import collaborators from the linked GitHub repository.</p>
-              {lastSync && (
-                <p className="text-xs text-muted-foreground mt-1">Last synced: {lastSync.toLocaleString()}</p>
-              )}
-            </div>
-            <Button size="sm" onClick={syncFromGitHub} disabled={syncing}>
-              <Github className="w-4 h-4 mr-2" /> {syncing ? 'Syncing...' : 'Sync Now'}
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {project.collaboration_type === 'authorized' && (
-        <Card className="p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Pending Requests</h2>
-          {pendingRequests.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No pending requests</p>
-          ) : (
-            <div className="space-y-2">
-              {pendingRequests.map((req) => (
-                <div key={req.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="text-sm">
-                    <span className="font-medium">User</span> requested to collaborate
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={() => approveRequest(req.id, req.requester_id)}>Approve</Button>
-                    <Button size="sm" variant="outline" onClick={() => declineRequest(req.id)}>Decline</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Collaborators</h1>
+          <p className="text-muted-foreground">Manage who can contribute to {project.title}</p>
+          {project.collaboration_type && (
+            <p className="text-xs text-muted-foreground mt-1">Mode: <span className="font-medium">{project.collaboration_type}</span></p>
           )}
-        </Card>
-      )}
-
-      {project.collaboration_type !== 'solo' && (
-        <Card className="p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Moderation Queue</h2>
-          {pendingEntries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No pending contributions</p>
-          ) : (
-            <div className="space-y-3">
-              {pendingEntries.map((entry) => (
-                <div key={entry.id} className="p-4 border rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-semibold">{entry.title}</div>
-                    <div className="text-xs text-muted-foreground">{entry.type}</div>
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{entry.content}</p>
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={async () => { await approveJourneyEntry(entry.id, user!.uid) }}>Approve</Button>
-                    <Button size="sm" variant="outline" onClick={async () => { await rejectJourneyEntry(entry.id, user!.uid) }}>Reject</Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
-
-      <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Add Collaborator</h2>
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 z-10 pointer-events-none" />
-          <div className="relative">
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Type @username to search or enter a name/email..."
-              className="pl-10 w-full"
-            />
-          </div>
         </div>
 
-        {searchResults.length > 0 && (
-          <div className="space-y-2">
-            {searchResults.map((foundUser) => (
-              <div key={foundUser.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={foundUser.avatar_url || "/placeholder.svg"} />
-                    <AvatarFallback>{foundUser.username?.slice(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-semibold">{foundUser.username}</p>
-                    <p className="text-sm text-muted-foreground">{foundUser.email}</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => addCollaborator(foundUser.id, "contributor")}>
-                    Add as Contributor
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => addCollaborator(foundUser.id, "viewer")}>
-                    Add as Viewer
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <Card className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Current Collaborators</h2>
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
-            <div className="flex items-center gap-3">
-              <Avatar className="w-10 h-10">
-                <AvatarImage src={userData[project.owner_id]?.avatar_url || "/placeholder.svg"} />
-                <AvatarFallback>{userData[project.owner_id]?.username?.slice(0, 2).toUpperCase()}</AvatarFallback>
-              </Avatar>
+        {project.collaboration_type === 'authorized' && project.collaboration_sync_github && (
+          <Card className="p-6 mb-6">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="font-semibold">{userData[project.owner_id]?.username}</p>
-                <p className="text-sm text-muted-foreground">Project Owner</p>
+                <h3 className="font-semibold mb-1">Sync GitHub Collaborators</h3>
+                <p className="text-sm text-muted-foreground">Import collaborators from the linked GitHub repository.</p>
+                {lastSync && (
+                  <p className="text-xs text-muted-foreground mt-1">Last synced: {lastSync.toLocaleString()}</p>
+                )}
               </div>
+              <Button size="sm" onClick={syncFromGitHub} disabled={syncing}>
+                <Github className="w-4 h-4 mr-2" /> {syncing ? 'Syncing...' : 'Sync Now'}
+              </Button>
             </div>
-            <Badge>Owner</Badge>
+          </Card>
+        )}
+
+        {project.collaboration_type === 'authorized' && (
+          <Card className="p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">Pending Requests</h2>
+            {pendingRequests.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No pending requests</p>
+            ) : (
+              <div className="space-y-2">
+                {pendingRequests.map((req) => (
+                  <div key={req.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="text-sm">
+                      <span className="font-medium">User</span> requested to collaborate
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => approveRequest(req.id, req.requester_id)}>Approve</Button>
+                      <Button size="sm" variant="outline" onClick={() => declineRequest(req.id)}>Decline</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
+
+        {project.collaboration_type !== 'solo' && (
+          <Card className="p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">Moderation Queue</h2>
+            {pendingEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No pending contributions</p>
+            ) : (
+              <div className="space-y-3">
+                {pendingEntries.map((entry) => (
+                  <div key={entry.id} className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-semibold">{entry.title}</div>
+                      <div className="text-xs text-muted-foreground">{entry.type}</div>
+                    </div>
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{entry.content}</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={async () => { await approveJourneyEntry(entry.id, user!.uid) }}>Approve</Button>
+                      <Button size="sm" variant="outline" onClick={async () => { await rejectJourneyEntry(entry.id, user!.uid) }}>Reject</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
+
+        <Card className="p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">Add Collaborator</h2>
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 z-10 pointer-events-none" />
+            <div className="relative">
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Type @username to search or enter a name/email..."
+                className="pl-10 w-full"
+              />
+            </div>
           </div>
 
-          {collaborators.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No collaborators yet</p>
-          ) : (
-            collaborators.map((collab) => {
-              const collabUser = userData[collab.user_id]
-              return (
-                <div key={collab.id} className="flex items-center justify-between p-4 border rounded-lg">
+          {searchResults.length > 0 && (
+            <div className="space-y-2">
+              {searchResults.map((foundUser) => (
+                <div key={foundUser.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={collabUser?.avatar_url || "/placeholder.svg"} />
-                      <AvatarFallback>{collabUser?.username?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarImage src={foundUser.avatar_url || foundUser.photoURL || "/placeholder.svg"} />
+                      <AvatarFallback>{(foundUser.username || foundUser.displayName)?.slice(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-semibold">{collabUser?.username}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">{foundUser.username || foundUser.displayName}</p>
+                        {foundUser.githubConnected && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <Github className="w-3 h-3" />
+                            {foundUser.githubUsername}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">{foundUser.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 flex-wrap justify-end">
+                    {foundUser.githubConnected && project?.github_url && (
+                      <Button
+                        size="sm"
+                        onClick={() => inviteViaGitHub(foundUser.id, "push")}
+                        disabled={inviting === foundUser.id}
+                        className="gap-1"
+                      >
+                        <Github className="w-4 h-4" />
+                        {inviting === foundUser.id ? 'Inviting...' : 'Invite via GitHub'}
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => addCollaborator(foundUser.id, "contributor")}>
+                      Add as Contributor
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => addCollaborator(foundUser.id, "viewer")}>
+                      Add as Viewer
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Pending GitHub Invitations */}
+        {pendingGitHubInvites.length > 0 && (
+          <Card className="p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-amber-500" />
+              Pending GitHub Invitations
+            </h2>
+            <div className="space-y-2">
+              {pendingGitHubInvites.map((invite) => (
+                <div key={invite.id} className="flex items-center justify-between p-3 border rounded-lg bg-amber-50/50 dark:bg-amber-950/20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                      <Github className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">@{invite.github_username}</p>
                       <p className="text-sm text-muted-foreground">
-                        Joined {collab.joined_at?.toDate?.()?.toLocaleDateString()}
+                        Awaiting acceptance on GitHub
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Select value={collab.role} onValueChange={(value) => updateRole(collab.id, value as any)}>
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="contributor">Contributor</SelectItem>
-                        <SelectItem value="viewer">Viewer</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button size="icon" variant="ghost" onClick={() => removeCollaborator(collab.id)}>
+                    <Badge variant="outline" className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                      Pending
+                    </Badge>
+                    <Button size="sm" variant="ghost" onClick={() => cancelGitHubInvite(invite.id)}>
                       <X className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
-              )
-            })
-          )}
-        </div>
-      </Card>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Use "Sync Now" to check if invitations have been accepted.
+            </p>
+          </Card>
+        )}
+
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold mb-4">Current Collaborators</h2>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+              <div className="flex items-center gap-3">
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src={userData[project.owner_id]?.avatar_url || "/placeholder.svg"} />
+                  <AvatarFallback>{userData[project.owner_id]?.username?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-semibold">{userData[project.owner_id]?.username}</p>
+                  <p className="text-sm text-muted-foreground">Project Owner</p>
+                </div>
+              </div>
+              <Badge>Owner</Badge>
+            </div>
+
+            {collaborators.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No collaborators yet</p>
+            ) : (
+              collaborators.map((collab) => {
+                const collabUser = userData[collab.user_id]
+                return (
+                  <div key={collab.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={collabUser?.avatar_url || "/placeholder.svg"} />
+                        <AvatarFallback>{collabUser?.username?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold">{collabUser?.username}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Joined {collab.joined_at?.toDate?.()?.toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Select value={collab.role} onValueChange={(value) => updateRole(collab.id, value as any)}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="contributor">Contributor</SelectItem>
+                          <SelectItem value="viewer">Viewer</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button size="icon" variant="ghost" onClick={() => removeCollaborator(collab.id)}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </Card>
       </div>
     </div>
   )

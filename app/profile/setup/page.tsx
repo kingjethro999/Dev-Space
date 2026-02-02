@@ -22,6 +22,8 @@ const SKILLS = [
   "C++",
   "Go",
   "Rust",
+  "PHP",
+  "Laravel",
   "PostgreSQL",
   "MongoDB",
   "Firebase",
@@ -109,11 +111,10 @@ export default function ProfileSetupPage() {
                 <button
                   key={skill}
                   onClick={() => toggleSkill(skill)}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${
-                    selectedSkills.includes(skill)
+                  className={`px-4 py-2 rounded-lg border transition-colors ${selectedSkills.includes(skill)
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-background border-border text-foreground hover:border-primary"
-                  }`}
+                    }`}
                 >
                   {skill}
                 </button>

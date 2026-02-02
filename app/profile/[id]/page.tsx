@@ -215,17 +215,17 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-background">
       <UniversalNav />
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex gap-8">
-          {/* Fixed Left Sidebar - Profile Info */}
-          <aside className="w-64 flex-shrink-0">
-            <div className="bg-card border border-border rounded-lg p-6 space-y-4 sticky top-8">
+      <main className="max-w-7xl mx-auto px-4 py-6 md:py-8">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+          {/* Left Sidebar - Profile Info */}
+          <aside className="w-full lg:w-64 flex-shrink-0">
+            <div className="bg-card border border-border rounded-lg p-4 md:p-6 space-y-4 lg:sticky lg:top-8">
               <div className="flex flex-col items-center">
-                <Avatar className="w-32 h-32 mb-4">
+                <Avatar className="w-24 h-24 md:w-32 md:h-32 mb-4">
                   <AvatarImage src={(profile as any).avatar_url || (profile as any).photoURL || "/placeholder.svg"} className="object-cover" />
-                  <AvatarFallback className="text-2xl">{profile.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback className="text-xl md:text-2xl">{profile.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <h1 className="text-2xl font-bold text-foreground text-center">{profile.username}</h1>
+                <h1 className="text-xl md:text-2xl font-bold text-foreground text-center">{profile.username}</h1>
                 {profile.bio && (
                   <p className="text-sm text-muted-foreground text-center mt-2">{profile.bio}</p>
                 )}
@@ -247,21 +247,21 @@ export default function ProfilePage() {
                 </Link>
               )}
 
-              <div className="space-y-3 pt-4 border-t border-border">
-                <div className="flex items-center gap-2 text-sm">
+              <div className="grid grid-cols-3 lg:grid-cols-1 gap-3 pt-4 border-t border-border">
+                <div className="flex flex-col lg:flex-row items-center lg:items-center gap-1 lg:gap-2 text-sm">
                   <Users className="w-4 h-4 text-muted-foreground" />
                   <span className="font-semibold text-foreground">{followerCount}</span>
-                  <span className="text-muted-foreground">followers</span>
+                  <span className="text-muted-foreground text-xs lg:text-sm">followers</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex flex-col lg:flex-row items-center lg:items-center gap-1 lg:gap-2 text-sm">
                   <Users className="w-4 h-4 text-muted-foreground" />
                   <span className="font-semibold text-foreground">{followingCount}</span>
-                  <span className="text-muted-foreground">following</span>
+                  <span className="text-muted-foreground text-xs lg:text-sm">following</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex flex-col lg:flex-row items-center lg:items-center gap-1 lg:gap-2 text-sm">
                   <Link2 className="w-4 h-4 text-muted-foreground" />
                   <span className="font-semibold text-foreground">{projects.length}</span>
-                  <span className="text-muted-foreground">projects</span>
+                  <span className="text-muted-foreground text-xs lg:text-sm">projects</span>
                 </div>
               </div>
 
@@ -321,9 +321,9 @@ export default function ProfilePage() {
           <div className="flex-1 space-y-6">
             {/* Badges Section */}
             {badgeProgress && (
-              <div className="bg-card border border-border rounded-lg p-6">
+              <div className="bg-card border border-border rounded-lg p-4 md:p-6">
                 <h3 className="font-bold mb-4">Badges</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 md:gap-3 mb-4">
                   {badgeProgress.map((p) => (
                     <BadgeCard key={p.category} progress={p} />
                   ))}
@@ -343,15 +343,15 @@ export default function ProfilePage() {
 
             {/* Projects Section */}
             {projects.length > 0 && (
-              <div className="bg-card border border-border rounded-lg p-6">
+              <div className="bg-card border border-border rounded-lg p-4 md:p-6">
                 <h3 className="font-bold mb-4">Projects</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   {projects.map((project) => (
                     <Link key={project.id} href={`/projects/${project.id}`}>
-                      <div className="p-4 border border-border rounded-lg hover:border-primary transition-colors cursor-pointer">
-                        <h4 className="font-semibold text-foreground mb-2">{project.title}</h4>
-                        <p className="text-sm text-muted-foreground mb-3">{project.description}</p>
-                        <TechBadgeList items={project.tech_stack} max={8} />
+                      <div className="p-3 md:p-4 border border-border rounded-lg hover:border-primary transition-colors cursor-pointer">
+                        <h4 className="font-semibold text-foreground mb-2 text-sm md:text-base">{project.title}</h4>
+                        <p className="text-xs md:text-sm text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
+                        <TechBadgeList items={project.tech_stack} max={6} />
                       </div>
                     </Link>
                   ))}
@@ -360,7 +360,7 @@ export default function ProfilePage() {
             )}
 
             {/* Activity Feed Section */}
-            <div className="bg-card border border-border rounded-lg p-6">
+            <div className="bg-card border border-border rounded-lg p-4 md:p-6">
               <h3 className="font-bold mb-4">Activity</h3>
               {activities.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">

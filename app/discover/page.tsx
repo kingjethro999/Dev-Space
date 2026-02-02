@@ -82,6 +82,8 @@ const TECH_FILTERS = [
   "Java",
   "Go",
   "Rust",
+  "PHP",
+  "Laravel",
   "PostgreSQL",
   "MongoDB",
   "Firebase",
@@ -126,9 +128,9 @@ export default function DiscoverPage() {
     const setupListener = async () => {
       try {
         const q = query(
-            collection(db, "projects"),
-            where("visibility", "==", "public"),
-            orderBy("created_at", "desc"),
+          collection(db, "projects"),
+          where("visibility", "==", "public"),
+          orderBy("created_at", "desc"),
           firestoreLimit(100),
         )
 
@@ -464,66 +466,60 @@ export default function DiscoverPage() {
           </div>
 
           {/* Content Type Tabs */}
-          <div className="flex gap-2 mb-6 border-b border-border">
+          <div className="flex gap-2 mb-6 border-b border-border overflow-x-auto scrollbar-hide pb-px -mb-px">
             <Button
               variant="ghost"
               onClick={() => setActiveTab("all")}
-              className={`rounded-none border-b-2 ${
-                activeTab === "all" ? "border-primary" : "border-transparent"
-              }`}
+              className={`rounded-none border-b-2 shrink-0 text-sm ${activeTab === "all" ? "border-primary" : "border-transparent"
+                }`}
             >
-              <Grid3x3 className="w-4 h-4 mr-2" />
+              <Grid3x3 className="w-4 h-4 mr-1.5" />
               All
             </Button>
             <Button
               variant="ghost"
               onClick={() => setActiveTab("projects")}
-              className={`rounded-none border-b-2 ${
-                activeTab === "projects" ? "border-primary" : "border-transparent"
-              }`}
+              className={`rounded-none border-b-2 shrink-0 text-sm ${activeTab === "projects" ? "border-primary" : "border-transparent"
+                }`}
             >
-              <Code2 className="w-4 h-4 mr-2" />
+              <Code2 className="w-4 h-4 mr-1.5" />
               Projects
             </Button>
             <Button
               variant="ghost"
               onClick={() => setActiveTab("discussions")}
-              className={`rounded-none border-b-2 ${
-                activeTab === "discussions" ? "border-primary" : "border-transparent"
-              }`}
+              className={`rounded-none border-b-2 shrink-0 text-sm ${activeTab === "discussions" ? "border-primary" : "border-transparent"
+                }`}
             >
-              <MessageSquare className="w-4 h-4 mr-2" />
+              <MessageSquare className="w-4 h-4 mr-1.5" />
               Discussions
             </Button>
             <Button
               variant="ghost"
               onClick={() => setActiveTab("journeys")}
-              className={`rounded-none border-b-2 ${
-                activeTab === "journeys" ? "border-primary" : "border-transparent"
-              }`}
+              className={`rounded-none border-b-2 shrink-0 text-sm ${activeTab === "journeys" ? "border-primary" : "border-transparent"
+                }`}
             >
-              <BookOpen className="w-4 h-4 mr-2" />
+              <BookOpen className="w-4 h-4 mr-1.5" />
               Journeys
             </Button>
             <Button
               variant="ghost"
               onClick={() => setActiveTab("people")}
-              className={`rounded-none border-b-2 ${
-                activeTab === "people" ? "border-primary" : "border-transparent"
-              }`}
+              className={`rounded-none border-b-2 shrink-0 text-sm ${activeTab === "people" ? "border-primary" : "border-transparent"
+                }`}
             >
-              <Users className="w-4 h-4 mr-2" />
+              <Users className="w-4 h-4 mr-1.5" />
               People
             </Button>
             <Button
               variant="ghost"
               onClick={() => setActiveTab("languages")}
-              className={`rounded-none border-b-2 ${
-                activeTab === "languages" ? "border-primary" : "border-transparent"
-              }`}
+              className={`rounded-none border-b-2 shrink-0 text-sm whitespace-nowrap ${activeTab === "languages" ? "border-primary" : "border-transparent"
+                }`}
             >
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Trending Languages
+              <TrendingUp className="w-4 h-4 mr-1.5" />
+              Trending
             </Button>
           </div>
         </div>
@@ -554,53 +550,53 @@ export default function DiscoverPage() {
             </div>
 
             {(activeTab === "projects" || activeTab === "all") && (
-            <div className="bg-card border border-border rounded-lg p-6">
-              <h3 className="font-bold mb-4">Sort By</h3>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="recent"
-                    checked={sortBy === "recent"}
-                    onChange={(e) => setSortBy(e.target.value as "recent" | "trending")}
-                  />
-                  <span className="text-sm">Most Recent</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="trending"
-                    checked={sortBy === "trending"}
-                    onChange={(e) => setSortBy(e.target.value as "recent" | "trending")}
-                  />
-                  <span className="text-sm">Trending</span>
-                </label>
+              <div className="bg-card border border-border rounded-lg p-6">
+                <h3 className="font-bold mb-4">Sort By</h3>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      value="recent"
+                      checked={sortBy === "recent"}
+                      onChange={(e) => setSortBy(e.target.value as "recent" | "trending")}
+                    />
+                    <span className="text-sm">Most Recent</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      value="trending"
+                      checked={sortBy === "trending"}
+                      onChange={(e) => setSortBy(e.target.value as "recent" | "trending")}
+                    />
+                    <span className="text-sm">Trending</span>
+                  </label>
+                </div>
               </div>
-            </div>
             )}
 
             {(activeTab === "all" || activeTab === "projects" || activeTab === "discussions" || activeTab === "journeys" || activeTab === "people") && (
-            <div className="bg-card border border-border rounded-lg p-6">
-              <h3 className="font-bold mb-4">Technologies</h3>
-              <div className="space-y-2">
-                {TECH_FILTERS.map((tech) => (
-                  <label key={tech} className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={selectedTechs.includes(tech)} onChange={() => toggleTech(tech)} />
-                    <span className="text-sm">{tech}</span>
-                  </label>
-                ))}
+              <div className="bg-card border border-border rounded-lg p-6">
+                <h3 className="font-bold mb-4">Technologies</h3>
+                <div className="space-y-2">
+                  {TECH_FILTERS.map((tech) => (
+                    <label key={tech} className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={selectedTechs.includes(tech)} onChange={() => toggleTech(tech)} />
+                      <span className="text-sm">{tech}</span>
+                    </label>
+                  ))}
+                </div>
+                {selectedTechs.length > 0 && (
+                  <Button
+                    onClick={() => setSelectedTechs([])}
+                    variant="outline"
+                    className="w-full mt-4 bg-transparent"
+                    size="sm"
+                  >
+                    Clear Filters
+                  </Button>
+                )}
               </div>
-              {selectedTechs.length > 0 && (
-                <Button
-                  onClick={() => setSelectedTechs([])}
-                  variant="outline"
-                  className="w-full mt-4 bg-transparent"
-                  size="sm"
-                >
-                  Clear Filters
-                </Button>
-              )}
-            </div>
             )}
           </div>
 
@@ -684,7 +680,7 @@ export default function DiscoverPage() {
                             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{discussion.content}</p>
                             {Array.isArray((discussion as any).media) && (discussion as any).media.length > 0 && (
                               <div className="mb-3 grid grid-cols-2 md:grid-cols-3 gap-2">
-                                {((discussion as any).media as {type:'image'|'video';url:string}[]).slice(0,6).map((m, i) => (
+                                {((discussion as any).media as { type: 'image' | 'video'; url: string }[]).slice(0, 6).map((m, i) => (
                                   <div key={i} className="relative aspect-video overflow-hidden rounded border">
                                     {m.type === 'image' ? (
                                       // eslint-disable-next-line @next/next/no-img-element
@@ -860,31 +856,31 @@ export default function DiscoverPage() {
               </div>
             ) : activeTab === "projects" ? (
               projects.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Image
-                  src="/illustrations/Programming.png"
-                  alt="No Projects Found"
-                  width={300}
-                  height={200}
-                  className="mx-auto mb-4 rounded-lg"
-                />
-                <p>No projects found. Try adjusting your filters or search query.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground mb-4">
-                  Found {projects.length} project{projects.length !== 1 ? "s" : ""}
-                </p>
-                  {projects.slice((page-1)*pageSize, page*pageSize).map((project) => (
-                  <Link key={project.id} href={`/projects/${project.id}`}>
-                    <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="text-lg font-bold text-foreground hover:text-primary">{project.title}</h3>
+                <div className="text-center py-12 text-muted-foreground">
+                  <Image
+                    src="/illustrations/Programming.png"
+                    alt="No Projects Found"
+                    width={300}
+                    height={200}
+                    className="mx-auto mb-4 rounded-lg"
+                  />
+                  <p>No projects found. Try adjusting your filters or search query.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Found {projects.length} project{projects.length !== 1 ? "s" : ""}
+                  </p>
+                  {projects.slice((page - 1) * pageSize, page * pageSize).map((project) => (
+                    <Link key={project.id} href={`/projects/${project.id}`}>
+                      <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="text-lg font-bold text-foreground hover:text-primary">{project.title}</h3>
                           {project.visibility === "private" && <Lock className="w-4 h-4 text-muted-foreground" />}
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
-                      <TechBadgeList items={project.tech_stack} max={9} className="mb-4" />
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
+                        <TechBadgeList items={project.tech_stack} max={9} className="mb-4" />
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <Avatar className="w-5 h-5">
                               <AvatarImage src={(userData[project.owner_id]?.avatar_url || userData[project.owner_id]?.photoURL) || "/placeholder.svg"} />
@@ -900,23 +896,23 @@ export default function DiscoverPage() {
                               by {userData[project.owner_id]?.username || "Unknown"}
                             </span>
                           </div>
-                        <span>{formatDate(project.created_at)}</span>
+                          <span>{formatDate(project.created_at)}</span>
+                        </div>
                       </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  ))}
                   {Math.ceil(projects.length / pageSize) > 1 && (
                     <div className="pt-4">
                       <Pagination>
                         <PaginationContent>
                           <PaginationItem>
-                            <PaginationPrevious onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p-1)) }} />
+                            <PaginationPrevious onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)) }} />
                           </PaginationItem>
                           <PaginationItem>
                             <span className="px-3 text-sm text-muted-foreground">Page {page} of {Math.ceil(projects.length / pageSize)}</span>
                           </PaginationItem>
                           <PaginationItem>
-                            <PaginationNext onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(Math.ceil(projects.length / pageSize), p+1)) }} />
+                            <PaginationNext onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(Math.ceil(projects.length / pageSize), p + 1)) }} />
                           </PaginationItem>
                         </PaginationContent>
                       </Pagination>
@@ -935,7 +931,7 @@ export default function DiscoverPage() {
                   <p className="text-sm text-muted-foreground mb-4">
                     Found {discussions.length} discussion{discussions.length !== 1 ? "s" : ""}
                   </p>
-                  {discussions.slice((page-1)*pageSize, page*pageSize).map((discussion) => (
+                  {discussions.slice((page - 1) * pageSize, page * pageSize).map((discussion) => (
                     <Link key={discussion.id} href={`/discussions/${discussion.id}`}>
                       <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
                         <div className="flex items-start justify-between mb-2">
@@ -945,7 +941,7 @@ export default function DiscoverPage() {
                         <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{discussion.content}</p>
                         {Array.isArray((discussion as any).media) && (discussion as any).media.length > 0 && (
                           <div className="mb-3 grid grid-cols-2 md:grid-cols-3 gap-2">
-                            {((discussion as any).media as {type:'image'|'video';url:string}[]).slice(0,6).map((m, i) => (
+                            {((discussion as any).media as { type: 'image' | 'video'; url: string }[]).slice(0, 6).map((m, i) => (
                               <div key={i} className="relative aspect-video overflow-hidden rounded border">
                                 {m.type === 'image' ? (
                                   // eslint-disable-next-line @next/next/no-img-element
@@ -994,18 +990,18 @@ export default function DiscoverPage() {
                       <Pagination>
                         <PaginationContent>
                           <PaginationItem>
-                            <PaginationPrevious onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p-1)) }} />
+                            <PaginationPrevious onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)) }} />
                           </PaginationItem>
                           <PaginationItem>
                             <span className="px-3 text-sm text-muted-foreground">Page {page} of {Math.ceil(discussions.length / pageSize)}</span>
                           </PaginationItem>
                           <PaginationItem>
-                            <PaginationNext onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(Math.ceil(discussions.length / pageSize), p+1)) }} />
+                            <PaginationNext onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(Math.ceil(discussions.length / pageSize), p + 1)) }} />
                           </PaginationItem>
                         </PaginationContent>
                       </Pagination>
-              </div>
-            )}
+                    </div>
+                  )}
                 </div>
               )
             ) : activeTab === "journeys" ? (

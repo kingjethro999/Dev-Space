@@ -88,8 +88,8 @@ function HomeContent() {
         try {
           const errorData = await response.json();
           if (errorData.error) {
-            errorMessage = typeof errorData.error === 'string' 
-              ? errorData.error 
+            errorMessage = typeof errorData.error === 'string'
+              ? errorData.error
               : errorData.error.message || errorMessage;
           } else if (errorData.message) {
             errorMessage = errorData.message;
@@ -209,10 +209,7 @@ function HomeContent() {
                 <Link href="/docs" className="text-muted-foreground hover:text-foreground transition-colors">
                   Documentation
                 </Link>
-                <Link href="/projects" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Projects
-                </Link>
-                <Link href="/discussions" className="text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/auth/signup?redirect=/discussions" className="text-muted-foreground hover:text-foreground transition-colors">
                   Community
                 </Link>
                 <Link href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -244,7 +241,7 @@ function HomeContent() {
               </div>
             </div>
 
-            {/* Mobile Menu */}
+            {/* Mobile Menu Button */}
             <div className="md:hidden">
               <Button
                 variant="ghost"
@@ -255,26 +252,91 @@ function HomeContent() {
               </Button>
             </div>
           </div>
+
+          {/* Mobile Menu Dropdown */}
+          <AnimatePresence>
+            {mobileMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="md:hidden border-t border-border overflow-hidden"
+              >
+                <div className="py-4 space-y-4">
+                  <div className="flex flex-col space-y-3">
+                    <Link
+                      href="/docs"
+                      className="text-muted-foreground hover:text-foreground transition-colors px-2 py-2"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Documentation
+                    </Link>
+                    <Link
+                      href="/auth/signup?redirect=/discussions"
+                      className="text-muted-foreground hover:text-foreground transition-colors px-2 py-2"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Community
+                    </Link>
+                    <Link
+                      href="/contact"
+                      className="text-muted-foreground hover:text-foreground transition-colors px-2 py-2"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Contact
+                    </Link>
+                  </div>
+
+                  <div className="border-t border-border pt-4 flex flex-col space-y-3">
+                    <div className="flex items-center justify-between px-2">
+                      <span className="text-sm text-muted-foreground">Theme</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                        className="w-9 h-9 p-0"
+                      >
+                        <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                        <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                      </Button>
+                    </div>
+
+                    <Link href="/auth/login" onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="ghost" className="w-full justify-start">
+                        Sign In
+                      </Button>
+                    </Link>
+                    <Link href="/auth/signup" onClick={() => setMobileMenuOpen(false)}>
+                      <Button className="w-full">
+                        Get Started
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-20 pb-16 overflow-hidden bg-gradient-to-br from-background to-muted/20">
+      <section className="relative pt-32 md:pt-40 lg:pt-48 pb-20 md:pb-28 overflow-hidden bg-gradient-to-br from-background via-background to-muted/30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Left Column - Content */}
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
-              className="space-y-8"
+              className="space-y-8 md:space-y-10"
             >
-              <div className="space-y-6">
+              <div className="space-y-6 md:space-y-8">
                 <motion.h1
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.2 }}
-                  className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-foreground"
+                  className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-foreground"
                 >
                   Where Developers{" "}
                   <span className="text-primary">
@@ -292,7 +354,7 @@ function HomeContent() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.4 }}
-                  className="text-xl text-muted-foreground max-w-6xl"
+                  className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-xl leading-relaxed"
                 >
                   DevSpace is more than a platform — it's a movement. Built to bridge the gap between
                   student developers and the wider tech world, we help you share your projects, learn from others,
@@ -305,7 +367,7 @@ function HomeContent() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.6 }}
-                className="grid grid-cols-2 gap-4"
+                className="grid grid-cols-2 gap-3 md:gap-4"
               >
                 {[
                   { icon: MessageSquare, text: "Connect & Collaborate", color: "text-blue-500" },
@@ -315,10 +377,10 @@ function HomeContent() {
                 ].map((feature, index) => (
                   <div
                     key={feature.text}
-                    className="flex items-center space-x-3 p-4 bg-card rounded-lg border border-border hover:border-primary/50 transition-colors"
+                    className="flex items-center space-x-2 md:space-x-3 p-3 md:p-4 bg-card/50 backdrop-blur-sm rounded-xl border border-border/50 hover:border-primary/50 hover:bg-card transition-all duration-300"
                   >
-                    <feature.icon className={`w-5 h-5 ${feature.color}`} />
-                    <span className="text-sm font-medium text-foreground">{feature.text}</span>
+                    <feature.icon className={`w-4 h-4 md:w-5 md:h-5 ${feature.color} shrink-0`} />
+                    <span className="text-xs md:text-sm font-medium text-foreground">{feature.text}</span>
                   </div>
                 ))}
               </motion.div>
@@ -328,16 +390,16 @@ function HomeContent() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.8 }}
-                className="flex flex-col sm:flex-row gap-4"
+                className="flex flex-col sm:flex-row gap-3 md:gap-4 pt-2"
               >
                 <Link href="/auth/signup">
-                  <Button size="lg" className="px-8 py-4 text-lg">
+                  <Button size="lg" className="w-full sm:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg">
                     Join the Space
-                    <ArrowRight className="ml-2 h-5 w-5" />
+                    <ArrowRight className="ml-2 h-4 w-4 md:h-5 md:w-5" />
                   </Button>
                 </Link>
                 <Link href="/projects">
-                  <Button size="lg" variant="outline" className="px-8 py-4 text-lg">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg">
                     Explore Projects
                   </Button>
                 </Link>
@@ -656,7 +718,7 @@ function HomeContent() {
               className="relative"
             >
               <Image
-                src="/Developer-activity.png"
+                src="/illustrations/Developer-activity.png"
                 alt="Developer Activity on DevSpace"
                 width={600}
                 height={400}
@@ -1204,8 +1266,8 @@ function HomeContent() {
                 >
                   <div
                     className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${message.role === 'user'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground'
                       }`}
                   >
                     {message.role === 'assistant' ? (

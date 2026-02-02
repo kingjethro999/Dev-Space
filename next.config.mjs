@@ -4,7 +4,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    // Image optimization enabled (default)
   },
   // Turbopack config (Next.js 16 uses Turbopack by default)
   turbopack: {},

@@ -27,6 +27,8 @@ const TECH_OPTIONS = [
   "C++",
   "Go",
   "Rust",
+  "PHP",
+  "Laravel",
   "PostgreSQL",
   "MongoDB",
   "Firebase",
@@ -56,6 +58,7 @@ export default function EditProjectPage() {
   const [projectImagePublicId, setProjectImagePublicId] = useState<string>("")
   const [collaborationType, setCollaborationType] = useState<"solo" | "authorized" | "open">("solo")
   const [syncGithubCollaborators, setSyncGithubCollaborators] = useState(false)
+  const [showAllTech, setShowAllTech] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -199,21 +202,30 @@ export default function EditProjectPage() {
           <div>
             <label className="block text-sm font-medium mb-4">Technology Stack</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {TECH_OPTIONS.map((tech) => (
+              {(showAllTech ? TECH_OPTIONS : TECH_OPTIONS.slice(0, 9)).map((tech) => (
                 <button
                   key={tech}
                   type="button"
                   onClick={() => toggleTech(tech)}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${
-                    selectedTech.includes(tech)
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-background border-border text-foreground hover:border-primary"
-                  }`}
+                  className={`px-4 py-2 rounded-lg border transition-colors ${selectedTech.includes(tech)
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background border-border text-foreground hover:border-primary"
+                    }`}
                 >
                   {tech}
                 </button>
               ))}
             </div>
+            {!showAllTech && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setShowAllTech(true)}
+                className="mt-3 w-full text-muted-foreground hover:text-foreground"
+              >
+                See more options...
+              </Button>
+            )}
           </div>
 
           <div>
