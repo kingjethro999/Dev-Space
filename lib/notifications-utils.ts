@@ -8,6 +8,9 @@ export type NotificationType =
   | "project_update"
   | "follow"
   | "comment"
+  | "like"
+  | "share"
+  | "reaction"
 
 export interface Notification {
   id: string

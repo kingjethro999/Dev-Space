@@ -150,7 +150,7 @@ export default function ProjectDetailPage() {
 
     if (project) {
       fetchGitHubStats()
-      
+
       // Check for new commits (non-blocking, only if project has GitHub URL and journey enabled)
       if (project.github_url && project.hasJourney && project.owner_id === user?.uid) {
         fetch('/api/github/commits/check', {
@@ -256,7 +256,7 @@ export default function ProjectDetailPage() {
           <div>
             <h3 className="font-bold mb-3">Technology Stack</h3>
             <TechBadgeList items={project.tech_stack} />
-            <EmojiReactions parentId={projectId} collectionName="projects" />
+            <EmojiReactions parentId={projectId} collectionName="projects" ownerId={project.owner_id} githubUrl={project.github_url} />
           </div>
 
           {githubStats && (

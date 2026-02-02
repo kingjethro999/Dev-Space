@@ -2,17 +2,18 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { 
-  subscribeToPostEngagement, 
-  likePost, 
-  unlikePost, 
-  sharePost, 
+import {
+  subscribeToPostEngagement,
+  likePost,
+  unlikePost,
+  sharePost,
   incrementViewCount,
   subscribeToComments,
   addComment,
   type PostEngagement,
   type Comment
 } from "@/lib/realtime-utils"
+import { createNotification } from "@/lib/notifications-utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -64,6 +65,18 @@ export function PostEngagement({ postId, postAuthorId }: PostEngagementProps) {
       } else {
         await likePost(postId, user.uid)
         setIsLiked(true)
+        // Notify the post author (only if it's not the user themselves)
+        if (postAuthorId && postAuthorId !== user.uid) {
+          await createNotification(
+            postAuthorId,
+            'like',
+            `${user.displayName || 'Someone'} liked your post`,
+            'Your post received a like!',
+            postId,
+            'post',
+            user.uid
+          )
+        }
       }
     } catch (error) {
       console.error('Error toggling like:', error)
@@ -78,7 +91,18 @@ export function PostEngagement({ postId, postAuthorId }: PostEngagementProps) {
     setIsLoading(true)
     try {
       await sharePost(postId, user.uid)
-      // You could also trigger a share dialog here
+      // Notify the post author (only if it's not the user themselves)
+      if (postAuthorId && postAuthorId !== user.uid) {
+        await createNotification(
+          postAuthorId,
+          'share',
+          `${user.displayName || 'Someone'} shared your post`,
+          'Your post was shared!',
+          postId,
+          'post',
+          user.uid
+        )
+      }
     } catch (error) {
       console.error('Error sharing post:', error)
     } finally {
@@ -94,6 +118,18 @@ export function PostEngagement({ postId, postAuthorId }: PostEngagementProps) {
     try {
       await addComment(postId, user.uid, user.displayName || 'Anonymous', newComment.trim(), user.photoURL || undefined)
       setNewComment("")
+      // Notify the post author (only if it's not the user themselves)
+      if (postAuthorId && postAuthorId !== user.uid) {
+        await createNotification(
+          postAuthorId,
+          'comment',
+          `${user.displayName || 'Someone'} commented on your post`,
+          newComment.trim().substring(0, 100) + (newComment.length > 100 ? '...' : ''),
+          postId,
+          'post',
+          user.uid
+        )
+      }
     } catch (error) {
       console.error('Error adding comment:', error)
     } finally {
@@ -132,9 +168,8 @@ export function PostEngagement({ postId, postAuthorId }: PostEngagementProps) {
             size="sm"
             onClick={handleLike}
             disabled={isLoading}
-            className={`flex items-center space-x-2 ${
-              isLiked ? 'text-red-500 hover:text-red-600' : 'hover:text-red-500'
-            }`}
+            className={`flex items-center space-x-2 ${isLiked ? 'text-red-500 hover:text-red-600' : 'hover:text-red-500'
+              }`}
           >
             <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
             <span>Like</span>

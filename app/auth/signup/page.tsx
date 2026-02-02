@@ -10,7 +10,7 @@ import {
   updateProfile,
 } from "firebase/auth"
 import { auth, db } from "@/lib/firebase"
-import { doc, setDoc } from "firebase/firestore"
+import { doc, setDoc, getDoc } from "firebase/firestore"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -88,6 +88,16 @@ export default function SignupPage() {
 
     try {
       const result = await signInWithGitHub()
+
+      // Check if user already exists in Firestore
+      const userDoc = await getDoc(doc(db, "users", result.uid))
+      if (userDoc.exists()) {
+        // Existing user - redirect to discover
+        router.push("/discover")
+        return
+      }
+
+      // New user - create profile and go to setup
       const displayName = result.displayName || "Developer"
       await createUserProfile(result.uid, displayName, result.email || "")
       router.push("/profile/setup")
@@ -114,93 +124,97 @@ export default function SignupPage() {
         </div>
 
         {/* Right Column - Signup Form */}
-        <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Join Dev Space</h1>
-          <p className="text-muted-foreground">Create your account and start connecting</p>
-          <p className="text-xs text-muted-foreground mt-2">Built by <span className="text-blue-400 font-semibold">King Jethro</span> - <a href="https://github.com/kingjethro999" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">@kingjethro999</a></p>
-        </div>
+        <div className="w-full max-w-md lg:max-w-lg mx-auto space-y-6 md:space-y-8">
+          <div className="text-center">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Join Dev Space</h1>
+            <p className="text-sm md:text-base text-muted-foreground">Create your account and start connecting</p>
+            <p className="text-xs text-muted-foreground mt-2">Built by <span className="text-blue-400 font-semibold">King Jethro</span> - <a href="https://github.com/kingjethro999" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline">@kingjethro999</a></p>
+          </div>
 
-        <form onSubmit={handleEmailSignup} className="space-y-4">
-          {error && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded text-destructive text-sm">
-              {error}
+          <form onSubmit={handleEmailSignup} className="space-y-4">
+            {error && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded text-destructive text-sm">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Username</label>
+              <Input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="your_username"
+                className="w-full"
+                required
+              />
             </div>
-          )}
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Username</label>
-            <Input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="your_username"
-              required
-            />
+            <div>
+              <label className="block text-sm font-medium mb-2">Email</label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Password</label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Confirm Password</label>
+              <Input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full"
+                required
+              />
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Creating account..." : "Create Account"}
+            </Button>
+          </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-background text-muted-foreground">Or sign up with</span>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Email</label>
-            <Input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <Button type="button" variant="outline" onClick={handleGoogleSignup} disabled={loading}>
+              Google
+            </Button>
+            <Button type="button" variant="outline" onClick={handleGithubSignup} disabled={loading}>
+              GitHub
+            </Button>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Password</label>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Confirm Password</label>
-            <Input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
-          </div>
-
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Creating account..." : "Create Account"}
-          </Button>
-        </form>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-border"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-background text-muted-foreground">Or sign up with</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <Button type="button" variant="outline" onClick={handleGoogleSignup} disabled={loading}>
-            Google
-          </Button>
-          <Button type="button" variant="outline" onClick={handleGithubSignup} disabled={loading}>
-            GitHub
-          </Button>
-        </div>
-
-        <p className="text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link href="/auth/login" className="text-primary hover:underline">
-            Sign in
-          </Link>
-        </p>
+          <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link href="/auth/login" className="text-primary hover:underline">
+              Sign in
+            </Link>
+          </p>
         </div>
       </div>
     </div>

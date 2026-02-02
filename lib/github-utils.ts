@@ -46,7 +46,7 @@ export async function signInWithGitHub() {
       githubConnectedAt: Timestamp.now(),
       createdAt: Timestamp.now(),
     }
-    
+
     await setDoc(doc(db, "users", user.uid), firestoreUser, { merge: true })
 
     // Also store the token in localStorage for immediate access
@@ -65,7 +65,7 @@ export async function signOut() {
   try {
     // Clear GitHub token from localStorage
     localStorage.removeItem('github_access_token')
-    
+
     await firebaseSignOut(auth)
   } catch (error) {
     console.error("Sign-out error:", error)
@@ -166,7 +166,7 @@ export async function getGitHubAccessToken(userId: string): Promise<string | nul
   try {
     // Check if we're in a browser environment before accessing localStorage
     const isServer = typeof window === 'undefined'
-    
+
     // Only check localStorage in browser/client environment
     if (!isServer) {
       const localToken = localStorage.getItem('github_access_token')
@@ -214,12 +214,12 @@ export async function getUserRepositories(userId: string) {
         // If response is not JSON, use status text
         errorMessage = response.statusText || errorMessage
       }
-      
+
       // Provide more specific error messages
       if (response.status === 401 || response.status === 403) {
         throw new Error(`GitHub authentication failed. Please reconnect your GitHub account. (${errorMessage})`)
       }
-      
+
       throw new Error(`GitHub API error: ${response.status} - ${errorMessage}`)
     }
 
@@ -366,7 +366,7 @@ export async function isGitHubConnected(userId: string): Promise<boolean> {
   try {
     const userDoc = await getDocs(query(collection(db, "users"), where("__name__", "==", userId)))
     if (userDoc.empty) return false
-    
+
     const userData = userDoc.docs[0].data()
     return userData.githubConnected === true && !!userData.githubAccessToken
   } catch (error) {
@@ -404,3 +404,315 @@ export async function getRepoCollaborators(owner: string, repo: string, userId: 
     throw e
   }
 }
+
+// Star a GitHub repository
+export async function starRepository(owner: string, repo: string, userId: string): Promise<boolean> {
+  try {
+    const accessToken = await getGitHubAccessToken(userId)
+    if (!accessToken) {
+      throw new Error('GitHub not connected. Please connect your GitHub account first.')
+    }
+
+    const response = await fetch(`https://api.github.com/user/starred/${owner}/${repo}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Length': '0',
+      },
+    })
+
+    if (response.status === 204) {
+      return true // Successfully starred
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('GitHub authentication failed. Please reconnect your GitHub account.')
+    }
+
+    throw new Error(`Failed to star repository: ${response.status}`)
+  } catch (error) {
+    console.error('Error starring repository:', error)
+    throw error
+  }
+}
+
+// Unstar a GitHub repository
+export async function unstarRepository(owner: string, repo: string, userId: string): Promise<boolean> {
+  try {
+    const accessToken = await getGitHubAccessToken(userId)
+    if (!accessToken) {
+      throw new Error('GitHub not connected. Please connect your GitHub account first.')
+    }
+
+    const response = await fetch(`https://api.github.com/user/starred/${owner}/${repo}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    })
+
+    if (response.status === 204) {
+      return true // Successfully unstarred
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('GitHub authentication failed. Please reconnect your GitHub account.')
+    }
+
+    throw new Error(`Failed to unstar repository: ${response.status}`)
+  } catch (error) {
+    console.error('Error unstarring repository:', error)
+    throw error
+  }
+}
+
+// Check if user has starred a repository
+export async function isRepositoryStarred(owner: string, repo: string, userId: string): Promise<boolean> {
+  try {
+    const accessToken = await getGitHubAccessToken(userId)
+    if (!accessToken) {
+      return false // Can't check without token
+    }
+
+    const response = await fetch(`https://api.github.com/user/starred/${owner}/${repo}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    })
+
+    return response.status === 204 // 204 = starred, 404 = not starred
+  } catch (error) {
+    console.error('Error checking if repository is starred:', error)
+    return false
+  }
+}
+
+// Helper to parse GitHub URL into owner and repo
+export function parseGitHubUrl(githubUrl: string): { owner: string; repo: string } | null {
+  try {
+    // Handle various GitHub URL formats
+    // https://github.com/owner/repo
+    // https://github.com/owner/repo.git
+    // git@github.com:owner/repo.git
+
+    let cleanUrl = githubUrl.trim()
+
+    // Remove .git suffix if present
+    cleanUrl = cleanUrl.replace(/\.git$/, '')
+
+    // Handle SSH format
+    if (cleanUrl.startsWith('git@github.com:')) {
+      const parts = cleanUrl.replace('git@github.com:', '').split('/')
+      if (parts.length >= 2) {
+        return { owner: parts[0], repo: parts[1] }
+      }
+    }
+
+    // Handle HTTPS format
+    const match = cleanUrl.match(/github\.com\/([^\/]+)\/([^\/]+)/)
+    if (match) {
+      return { owner: match[1], repo: match[2] }
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}
+
+// ========================================
+// GitHub Collaboration Functions
+// ========================================
+
+export type GitHubPermission = 'pull' | 'push' | 'admin' | 'maintain' | 'triage'
+
+export interface GitHubInviteResult {
+  success: boolean
+  invitationId?: number
+  message: string
+  alreadyCollaborator?: boolean
+}
+
+/**
+ * Invite a user to a GitHub repository as a collaborator
+ * Requires the inviting user to have admin access to the repo
+ */
+export async function inviteCollaboratorToRepo(
+  owner: string,
+  repo: string,
+  githubUsername: string,
+  permission: GitHubPermission,
+  userId: string
+): Promise<GitHubInviteResult> {
+  try {
+    const accessToken = await getGitHubAccessToken(userId)
+    if (!accessToken) {
+      throw new Error('GitHub not connected. Please connect your GitHub account first.')
+    }
+
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/collaborators/${githubUsername}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ permission }),
+    })
+
+    if (response.status === 201) {
+      // Invitation created
+      const data = await response.json()
+      return {
+        success: true,
+        invitationId: data.id,
+        message: `Invitation sent to ${githubUsername}`,
+      }
+    }
+
+    if (response.status === 204) {
+      // User already has access (existing collaborator)
+      return {
+        success: true,
+        alreadyCollaborator: true,
+        message: `${githubUsername} is already a collaborator`,
+      }
+    }
+
+    if (response.status === 404) {
+      throw new Error(`Repository not found or you don't have admin access`)
+    }
+
+    if (response.status === 422) {
+      const errorData = await response.json()
+      throw new Error(errorData.message || 'Unable to send invitation')
+    }
+
+    throw new Error(`GitHub API error: ${response.status}`)
+  } catch (error) {
+    console.error('Error inviting collaborator:', error)
+    throw error
+  }
+}
+
+export interface PendingInvitation {
+  id: number
+  invitee: {
+    login: string
+    avatar_url: string
+    html_url: string
+  }
+  permissions: string
+  created_at: string
+  html_url: string
+}
+
+/**
+ * Get pending invitations for a repository
+ */
+export async function getRepoPendingInvitations(
+  owner: string,
+  repo: string,
+  userId: string
+): Promise<PendingInvitation[]> {
+  try {
+    const accessToken = await getGitHubAccessToken(userId)
+    if (!accessToken) {
+      throw new Error('GitHub not connected')
+    }
+
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/invitations`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    })
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return [] // No access or repo not found
+      }
+      throw new Error(`GitHub API error: ${response.status}`)
+    }
+
+    const invitations = await response.json()
+    return invitations.map((inv: any) => ({
+      id: inv.id,
+      invitee: {
+        login: inv.invitee.login,
+        avatar_url: inv.invitee.avatar_url,
+        html_url: inv.invitee.html_url,
+      },
+      permissions: inv.permissions,
+      created_at: inv.created_at,
+      html_url: inv.html_url,
+    }))
+  } catch (error) {
+    console.error('Error fetching pending invitations:', error)
+    throw error
+  }
+}
+
+/**
+ * Cancel a pending repository invitation
+ */
+export async function cancelRepoInvitation(
+  owner: string,
+  repo: string,
+  invitationId: number,
+  userId: string
+): Promise<boolean> {
+  try {
+    const accessToken = await getGitHubAccessToken(userId)
+    if (!accessToken) {
+      throw new Error('GitHub not connected')
+    }
+
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/invitations/${invitationId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    })
+
+    return response.status === 204
+  } catch (error) {
+    console.error('Error canceling invitation:', error)
+    throw error
+  }
+}
+
+/**
+ * Check if a user is a collaborator on a repository
+ */
+export async function checkUserIsCollaborator(
+  owner: string,
+  repo: string,
+  username: string,
+  userId: string
+): Promise<boolean> {
+  try {
+    const accessToken = await getGitHubAccessToken(userId)
+    if (!accessToken) {
+      return false
+    }
+
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/collaborators/${username}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    })
+
+    return response.status === 204
+  } catch (error) {
+    console.error('Error checking collaborator status:', error)
+    return false
+  }
+}
+
