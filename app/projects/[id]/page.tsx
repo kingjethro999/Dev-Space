@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
 import { Users, Code, Github, BookOpen, Share2, Copy, Edit, Trash2 } from "lucide-react"
-import { getGitHubRepoStats } from "@/lib/github-utils"
+import { getGitHubRepoStats, parseGitHubUrl } from "@/lib/github-utils"
 import { UniversalNav } from "@/components/universal-nav"
 import { ShareToChatDialog } from "@/components/share-to-chat-dialog"
 import { EmojiReactions } from "@/components/emoji-reactions"
@@ -132,18 +132,43 @@ export default function ProjectDetailPage() {
   useEffect(() => {
     const fetchGitHubStats = async () => {
       if (project?.github_url) {
+        let statsFetched = false
+
         try {
-          const stats = await getGitHubRepoStats(project.id)
-          if (stats) {
-            setGithubStats({
-              stars: stats.stars,
-              forks: stats.forks,
-              watchers: stats.watchers,
-              language: stats.language,
-            })
+          const parsedInfo = parseGitHubUrl(project.github_url)
+          if (parsedInfo) {
+            const { owner, repo } = parsedInfo
+            const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`)
+            if (response.ok) {
+              const data = await response.json()
+              setGithubStats({
+                stars: data.stargazers_count,
+                forks: data.forks_count,
+                watchers: data.subscribers_count || data.watchers_count || 0,
+                language: data.language || "Unknown",
+              })
+              statsFetched = true
+            }
           }
         } catch (error) {
-          console.error("Error fetching GitHub stats:", error)
+          console.error("Error fetching real-time GitHub stats:", error)
+        }
+
+        // Fallback to database if real-time fetching fails
+        if (!statsFetched) {
+          try {
+            const stats = await getGitHubRepoStats(project.id)
+            if (stats) {
+              setGithubStats({
+                stars: stats.stars,
+                forks: stats.forks,
+                watchers: stats.watchers,
+                language: stats.language,
+              })
+            }
+          } catch (error) {
+            console.error("Error fetching GitHub stats fallback:", error)
+          }
         }
       }
     }
@@ -260,23 +285,23 @@ export default function ProjectDetailPage() {
           </div>
 
           {githubStats && (
-            <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+            <div className="bg-card/50 border border-border rounded-lg p-4">
               <div className="flex items-center gap-2 mb-3">
-                <Github className="w-5 h-5 text-slate-300" />
-                <h3 className="font-semibold text-slate-200">GitHub Stats</h3>
+                <Github className="w-5 h-5 text-foreground" />
+                <h3 className="font-semibold text-foreground">GitHub Stats</h3>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <div className="text-2xl font-bold text-yellow-400">{githubStats.stars}</div>
-                  <div className="text-xs text-slate-400">Stars</div>
+                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{githubStats.stars}</div>
+                  <div className="text-xs text-muted-foreground">Stars</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-blue-400">{githubStats.forks}</div>
-                  <div className="text-xs text-slate-400">Forks</div>
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{githubStats.forks}</div>
+                  <div className="text-xs text-muted-foreground">Forks</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-purple-400">{githubStats.watchers}</div>
-                  <div className="text-xs text-slate-400">Watchers</div>
+                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{githubStats.watchers}</div>
+                  <div className="text-xs text-muted-foreground">Watchers</div>
                 </div>
               </div>
             </div>

@@ -6,14 +6,15 @@ import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { db } from "@/lib/firebase"
-import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore"
+import { collection, addDoc, serverTimestamp, doc, getDoc, query, where, getDocs } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { RepositorySelector } from "@/components/repository-selector"
 import Link from "next/link"
-import { Github, ExternalLink, Star, GitFork, Eye, Lock, Globe, AlertCircle, Briefcase } from "lucide-react"
+import { Github, ExternalLink, Star, GitFork, Eye, Lock, Globe, AlertCircle, Briefcase, Search, X, UserPlus } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { motion } from "framer-motion"
 import { UniversalNav } from "@/components/universal-nav"
 import { ProjectImageUploadButton } from "@/components/ProjectImageUploadButton"
@@ -80,6 +81,72 @@ export default function NewProjectPage() {
   const [collaborationType, setCollaborationType] = useState<"solo" | "authorized" | "open">("solo")
   const [syncGithubCollaborators, setSyncGithubCollaborators] = useState(false)
   const [showAllTech, setShowAllTech] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [manualCollaborators, setManualCollaborators] = useState<any[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+
+  const searchUsers = async (queryText: string) => {
+    if (!queryText.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      // Fetch users and filter client-side for substring matching
+      // Firestore prefix queries only work for exact prefixes
+      const usersRef = collection(db, "users")
+      const snapshot = await getDocs(usersRef)
+
+      const searchLower = queryText.toLowerCase().trim()
+
+      const results = snapshot.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() } as any))
+        .filter((u: any) => {
+          // Exclude current user and already selected collaborators
+          if (u.id === user?.uid || manualCollaborators.some(c => c.id === u.id)) {
+            return false
+          }
+
+          const username = (u.username || "").toLowerCase()
+          const displayName = (u.displayName || "").toLowerCase()
+          const email = (u.email || "").toLowerCase()
+
+          return username.includes(searchLower) ||
+            displayName.includes(searchLower) ||
+            email.includes(searchLower)
+        })
+        .slice(0, 5) // Limit results
+
+      setSearchResults(results)
+    } catch (error) {
+      console.error("Error searching users:", error)
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery) {
+        searchUsers(searchQuery)
+      } else {
+        setSearchResults([])
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery, manualCollaborators])
+
+  const addManualCollaborator = (user: any) => {
+    setManualCollaborators([...manualCollaborators, user])
+    setSearchQuery("")
+    setSearchResults([])
+  }
+
+  const removeManualCollaborator = (userId: string) => {
+    setManualCollaborators(manualCollaborators.filter(c => c.id !== userId))
+  }
 
   useEffect(() => {
     const checkGithubConnection = async () => {
@@ -255,6 +322,19 @@ export default function NewProjectPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ projectId: projectRef.id })
         }).catch(err => console.error('Background GitHub sync failed:', err))
+      }
+
+      // Add manual collaborators
+      if (collaborationType === "authorized" && manualCollaborators.length > 0) {
+        Promise.all(manualCollaborators.map(collaborator =>
+          addDoc(collection(db, "collaborations"), {
+            project_id: projectRef.id,
+            user_id: collaborator.id,
+            role: "contributor",
+            joined_at: serverTimestamp(),
+            entry_type: 'manual_addition'
+          })
+        )).catch(err => console.error('Failed to add manual collaborators:', err))
       }
 
       // Add activity
@@ -527,6 +607,81 @@ export default function NewProjectPage() {
                     <span className="block text-xs text-muted-foreground">When enabled, we can sync repo collaborators later from project settings.</span>
                   </div>
                 </label>
+              )}
+
+              {collaborationType === "authorized" && (
+                <div className="mt-4 pt-4 border-t border-border/50">
+                  <label className="block text-sm font-medium mb-2">Add Contributors manually</label>
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search users by name, username, email..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                    {isSearching && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Search Results */}
+                  {searchResults.length > 0 && (
+                    <div className="mb-4 bg-background border border-border rounded-lg overflow-hidden shadow-lg max-h-60 overflow-y-auto">
+                      {searchResults.map((user) => (
+                        <div key={user.id} className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="w-8 h-8">
+                              <AvatarImage src={user.photoURL || user.avatar_url} />
+                              <AvatarFallback>{(user.displayName || user.username || "?").slice(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-medium">{user.displayName || user.username}</p>
+                              <p className="text-xs text-muted-foreground">@{user.username}</p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => addManualCollaborator(user)}
+                            className="h-8"
+                          >
+                            <UserPlus className="w-4 h-4 mr-1" />
+                            Add
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Selected Collaborators */}
+                  {manualCollaborators.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium">Selected Contributors:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {manualCollaborators.map((user) => (
+                          <div key={user.id} className="flex items-center gap-2 bg-background border border-border rounded-full pl-1 pr-3 py-1">
+                            <Avatar className="w-6 h-6">
+                              <AvatarImage src={user.photoURL || user.avatar_url} />
+                              <AvatarFallback className="text-[10px]">{(user.displayName || user.username || "?").slice(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm">{user.displayName || user.username}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeManualCollaborator(user.id)}
+                              className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
