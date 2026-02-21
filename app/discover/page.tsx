@@ -617,7 +617,7 @@ export default function DiscoverPage() {
                     </div>
                     <div className="space-y-4">
                       {projects.slice(0, 4).map((project) => (
-                        <Link key={project.id} href={`/projects/${project.id}`}>
+                        <Link key={project.id} href={`/projects/${project.id}`} className="block">
                           <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
                             <div className="flex items-start justify-between mb-2">
                               <h3 className="text-lg font-bold text-foreground hover:text-primary">{project.title}</h3>
@@ -671,7 +671,7 @@ export default function DiscoverPage() {
                     </div>
                     <div className="space-y-4">
                       {discussions.slice(0, 4).map((discussion) => (
-                        <Link key={discussion.id} href={`/discussions/${discussion.id}`}>
+                        <Link key={discussion.id} href={`/discussions/${discussion.id}`} className="block">
                           <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
                             <div className="flex items-start justify-between mb-2">
                               <h3 className="text-lg font-bold text-foreground hover:text-primary">{discussion.title}</h3>
@@ -749,7 +749,7 @@ export default function DiscoverPage() {
                     </div>
                     <div className="space-y-4">
                       {journeyEntries.slice(0, 4).map((entry) => (
-                        <Link key={entry.id} href={`/projects/${entry.projectId}/journey`}>
+                        <Link key={entry.id} href={`/projects/${entry.projectId}/journey`} className="block">
                           <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
                             <div className="flex items-start justify-between mb-2">
                               <h3 className="text-lg font-bold text-foreground hover:text-primary">{entry.title}</h3>
@@ -808,7 +808,7 @@ export default function DiscoverPage() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {people.slice(0, 6).map((person) => (
-                        <Link key={person.id} href={`/profile/${person.id}`}>
+                        <Link key={person.id} href={`/profile/${person.id}`} className="block">
                           <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
                             <div className="flex items-start gap-4 mb-3">
                               <Avatar className="w-12 h-12">
@@ -872,7 +872,7 @@ export default function DiscoverPage() {
                     Found {projects.length} project{projects.length !== 1 ? "s" : ""}
                   </p>
                   {projects.slice((page - 1) * pageSize, page * pageSize).map((project) => (
-                    <Link key={project.id} href={`/projects/${project.id}`}>
+                    <Link key={project.id} href={`/projects/${project.id}`} className="block">
                       <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
                         <div className="flex items-start justify-between mb-2">
                           <h3 className="text-lg font-bold text-foreground hover:text-primary">{project.title}</h3>
@@ -932,7 +932,7 @@ export default function DiscoverPage() {
                     Found {discussions.length} discussion{discussions.length !== 1 ? "s" : ""}
                   </p>
                   {discussions.slice((page - 1) * pageSize, page * pageSize).map((discussion) => (
-                    <Link key={discussion.id} href={`/discussions/${discussion.id}`}>
+                    <Link key={discussion.id} href={`/discussions/${discussion.id}`} className="block">
                       <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
                         <div className="flex items-start justify-between mb-2">
                           <h3 className="text-lg font-bold text-foreground hover:text-primary">{discussion.title}</h3>
@@ -1016,7 +1016,7 @@ export default function DiscoverPage() {
                     Found {journeyEntries.length} journey entr{journeyEntries.length !== 1 ? "ies" : "y"}
                   </p>
                   {journeyEntries.map((entry) => (
-                    <Link key={entry.id} href={`/projects/${entry.projectId}/journey`}>
+                    <Link key={entry.id} href={`/projects/${entry.projectId}/journey`} className="block">
                       <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
                         <div className="flex items-start justify-between mb-2">
                           <h3 className="text-lg font-bold text-foreground hover:text-primary">{entry.title}</h3>
@@ -1065,7 +1065,7 @@ export default function DiscoverPage() {
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {people.map((person) => (
-                      <Link key={person.id} href={`/profile/${person.id}`}>
+                      <Link key={person.id} href={`/profile/${person.id}`} className="block">
                         <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
                           <div className="flex items-start gap-4 mb-3">
                             <Avatar className="w-12 h-12">
