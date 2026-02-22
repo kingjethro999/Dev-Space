@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
 import { Users, Code, Github, BookOpen, Share2, Copy, Edit, Trash2 } from "lucide-react"
-import { getGitHubRepoStats, parseGitHubUrl } from "@/lib/github-utils"
+import { getGitHubRepoStats, parseGitHubUrl, getLanguageColor } from "@/lib/github-utils"
 import { UniversalNav } from "@/components/universal-nav"
 import { ShareToChatDialog } from "@/components/share-to-chat-dialog"
 import { EmojiReactions } from "@/components/emoji-reactions"
@@ -21,6 +21,7 @@ interface Project {
   title: string
   description: string
   tech_stack: string[]
+  repo_languages?: Record<string, number>
   github_url: string
   live_url?: string
   visibility: "public" | "private"
@@ -279,8 +280,47 @@ export default function ProjectDetailPage() {
           <p className="text-lg text-muted-foreground">{project.description}</p>
 
           <div>
-            <h3 className="font-bold mb-3">Technology Stack</h3>
-            <TechBadgeList items={project.tech_stack} />
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold">Languages</h3>
+            </div>
+            {project.repo_languages && Object.keys(project.repo_languages).length > 0 ? (
+              <div className="space-y-3 mb-6">
+                <div className="h-2.5 w-full rounded-full overflow-hidden flex">
+                  {Object.entries(project.repo_languages).map(([lang, bytes]) => {
+                    const totalBytes = Object.values(project.repo_languages || {}).reduce((a, b) => a + b, 0);
+                    const percentage = (bytes / totalBytes) * 100;
+                    return (
+                      <div
+                        key={lang}
+                        style={{ width: `${percentage}%` }}
+                        className={`h-full ${getLanguageColor(lang)}`}
+                        title={`${lang}: ${percentage.toFixed(1)}%`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="flex flex-wrap gap-x-6 gap-y-2">
+                  {Object.entries(project.repo_languages)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([lang, bytes]) => {
+                      const totalBytes = Object.values(project.repo_languages || {}).reduce((a, b) => a + b, 0);
+                      const percentage = (bytes / totalBytes) * 100;
+                      return (
+                        <div key={lang} className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${getLanguageColor(lang)}`} />
+                          <span className="text-sm font-medium text-foreground">{lang}</span>
+                          <span className="text-xs text-muted-foreground">{percentage.toFixed(1)}%</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            ) : project.tech_stack && project.tech_stack.length > 0 ? (
+              <TechBadgeList items={project.tech_stack} className="mb-6" />
+            ) : (
+              <p className="text-sm text-muted-foreground mb-6">No languages available</p>
+            )}
+
             <EmojiReactions parentId={projectId} collectionName="projects" ownerId={project.owner_id} githubUrl={project.github_url} />
           </div>
 

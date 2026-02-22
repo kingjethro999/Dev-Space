@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { RepositorySelector } from "@/components/repository-selector"
+import { parseGitHubUrl, getRepositoryDetails, getRepositoryLanguages, getLanguageColor } from "@/lib/github-utils"
 import Link from "next/link"
 import { Github, ExternalLink, Star, GitFork, Eye, Lock, Globe, AlertCircle, Briefcase, Search, X, UserPlus } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -19,30 +20,7 @@ import { motion } from "framer-motion"
 import { UniversalNav } from "@/components/universal-nav"
 import { ProjectImageUploadButton } from "@/components/ProjectImageUploadButton"
 
-const TECH_OPTIONS = [
-  "JavaScript",
-  "TypeScript",
-  "React",
-  "Next.js",
-  "Vue.js",
-  "Angular",
-  "Node.js",
-  "Python",
-  "Java",
-  "C++",
-  "Go",
-  "Rust",
-  "PHP",
-  "Laravel",
-  "PostgreSQL",
-  "MongoDB",
-  "Firebase",
-  "AWS",
-  "Docker",
-  "Kubernetes",
-  "GraphQL",
-  "REST API",
-]
+
 
 interface Repository {
   id: number
@@ -66,7 +44,6 @@ export default function NewProjectPage() {
   const router = useRouter()
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
-  const [selectedTech, setSelectedTech] = useState<string[]>([])
   const [liveUrl, setLiveUrl] = useState("")
   const [visibility, setVisibility] = useState<"public" | "private">("public")
   const [saving, setSaving] = useState(false)
@@ -80,7 +57,10 @@ export default function NewProjectPage() {
   const [projectImagePublicId, setProjectImagePublicId] = useState<string>("")
   const [collaborationType, setCollaborationType] = useState<"solo" | "authorized" | "open">("solo")
   const [syncGithubCollaborators, setSyncGithubCollaborators] = useState(false)
-  const [showAllTech, setShowAllTech] = useState(false)
+
+  const [repoUrlInput, setRepoUrlInput] = useState("")
+  const [isFetchingRepo, setIsFetchingRepo] = useState(false)
+  const [repoLanguages, setRepoLanguages] = useState<Record<string, number>>({})
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [manualCollaborators, setManualCollaborators] = useState<any[]>([])
@@ -146,6 +126,67 @@ export default function NewProjectPage() {
 
   const removeManualCollaborator = (userId: string) => {
     setManualCollaborators(manualCollaborators.filter(c => c.id !== userId))
+  }
+
+  const fetchRepoLanguages = async (repo: Repository) => {
+    if (!user) return
+    try {
+      const owner = repo.fullName ? repo.fullName.split('/')[0] : (repo as any).owner?.login || (repo as any).owner;
+      const name = repo.name;
+      const languages = await getRepositoryLanguages(owner, name, user.uid);
+      setRepoLanguages(languages);
+    } catch (err) {
+      console.error("Failed to fetch repo languages", err);
+    }
+  }
+
+  useEffect(() => {
+    if (selectedRepository) {
+      fetchRepoLanguages(selectedRepository)
+    } else {
+      setRepoLanguages({})
+    }
+  }, [selectedRepository])
+
+  const handleManualRepoFetch = async () => {
+    if (!repoUrlInput.trim() || !user) return
+
+    setIsFetchingRepo(true)
+    setError("")
+    try {
+      const parsed = parseGitHubUrl(repoUrlInput)
+      if (!parsed) {
+        throw new Error("Invalid GitHub URL format")
+      }
+
+      const repoDetails = await getRepositoryDetails(parsed.owner, parsed.repo, user.uid)
+
+      const mappedRepo: Repository = {
+        id: repoDetails.id,
+        name: repoDetails.name,
+        fullName: repoDetails.fullName || `${parsed.owner}/${parsed.repo}`,
+        description: repoDetails.description,
+        language: repoDetails.language,
+        stars: repoDetails.stars,
+        forks: repoDetails.forks,
+        watchers: repoDetails.watchers,
+        private: repoDetails.private,
+        url: repoDetails.url || repoUrlInput,
+        cloneUrl: repoDetails.cloneUrl,
+        defaultBranch: repoDetails.defaultBranch,
+        updatedAt: repoDetails.updatedAt,
+        createdAt: repoDetails.createdAt,
+      }
+
+      setSelectedRepository(mappedRepo)
+      setShowRepositorySelector(false)
+      setRepoUrlInput("")
+
+    } catch (err: any) {
+      setError(err.message || "Failed to fetch repository details. Verify the URL and your access.")
+    } finally {
+      setIsFetchingRepo(false)
+    }
   }
 
   useEffect(() => {
@@ -250,10 +291,6 @@ export default function NewProjectPage() {
     )
   }
 
-  const toggleTech = (tech: string) => {
-    setSelectedTech((prev) => (prev.includes(tech) ? prev.filter((t) => t !== tech) : [...prev, tech]))
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -275,7 +312,7 @@ export default function NewProjectPage() {
         owner_id: user.uid,
         title,
         description,
-        tech_stack: selectedTech,
+        repo_languages: repoLanguages,
         github_url: selectedRepository.url,
         github_repo_id: selectedRepository.id,
         github_repo_name: selectedRepository.name,
@@ -476,18 +513,45 @@ export default function NewProjectPage() {
                 </CardContent>
               </Card>
             ) : (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowRepositorySelector(true)}
-                className="w-full h-20 border-dashed border-2 border-border hover:border-primary/50 hover:bg-primary/5"
-              >
-                <div className="text-center">
-                  <Github className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm font-medium">Select GitHub Repository</p>
-                  <p className="text-xs text-muted-foreground">Choose from your repositories</p>
+              <div className="space-y-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowRepositorySelector(true)}
+                  className="w-full h-20 border-dashed border-2 border-border hover:border-primary/50 hover:bg-primary/5"
+                >
+                  <div className="text-center">
+                    <Github className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm font-medium">Select GitHub Repository</p>
+                    <p className="text-xs text-muted-foreground">Choose from your repositories</p>
+                  </div>
+                </Button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or use repo link</span>
+                  </div>
                 </div>
-              </Button>
+
+                <div className="flex gap-2">
+                  <Input
+                    type="url"
+                    placeholder="https://github.com/owner/repo"
+                    value={repoUrlInput}
+                    onChange={(e) => setRepoUrlInput(e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleManualRepoFetch}
+                    disabled={isFetchingRepo || !repoUrlInput.trim()}
+                  >
+                    {isFetchingRepo ? "Fetching..." : "Fetch"}
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
 
@@ -501,34 +565,42 @@ export default function NewProjectPage() {
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-4">Technology Stack</label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {(showAllTech ? TECH_OPTIONS : TECH_OPTIONS.slice(0, 9)).map((tech) => (
-                <button
-                  key={tech}
-                  type="button"
-                  onClick={() => toggleTech(tech)}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${selectedTech.includes(tech)
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background border-border text-foreground hover:border-primary"
-                    }`}
-                >
-                  {tech}
-                </button>
-              ))}
+          {selectedRepository && Object.keys(repoLanguages).length > 0 && (
+            <div>
+              <label className="block text-sm font-medium mb-3">Languages</label>
+              <div className="space-y-3 p-4 bg-card border border-border rounded-lg">
+                <div className="h-2 w-full rounded-full overflow-hidden flex">
+                  {Object.entries(repoLanguages).map(([lang, bytes]) => {
+                    const totalBytes = Object.values(repoLanguages).reduce((a, b) => a + b, 0);
+                    const percentage = (bytes / totalBytes) * 100;
+                    return (
+                      <div
+                        key={lang}
+                        style={{ width: `${percentage}%` }}
+                        className={`h-full ${getLanguageColor(lang)}`}
+                        title={`${lang}: ${percentage.toFixed(1)}%`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="flex flex-wrap gap-x-6 gap-y-2 mt-3">
+                  {Object.entries(repoLanguages)
+                    .sort((a, b) => b[1] - a[1]) // Sort largest first
+                    .map(([lang, bytes]) => {
+                      const totalBytes = Object.values(repoLanguages).reduce((a, b) => a + b, 0);
+                      const percentage = (bytes / totalBytes) * 100;
+                      return (
+                        <div key={lang} className="flex items-center gap-2">
+                          <div className={`w-2.5 h-2.5 rounded-full ${getLanguageColor(lang)}`} />
+                          <span className="text-sm font-medium text-foreground">{lang}</span>
+                          <span className="text-xs text-muted-foreground">{percentage.toFixed(1)}%</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
             </div>
-            {!showAllTech && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setShowAllTech(true)}
-                className="mt-3 w-full text-muted-foreground hover:text-foreground"
-              >
-                See more options...
-              </Button>
-            )}
-          </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-2">Visibility</label>

@@ -24,6 +24,7 @@ interface Project {
   title: string
   description: string
   tech_stack: string[]
+  repo_languages?: Record<string, number>
   github_url: string
   visibility: "public" | "private"
   created_at: any
@@ -146,15 +147,17 @@ export default function DiscoverPage() {
             projectsData = projectsData.filter(
               (p) =>
                 p.title.toLowerCase().includes(query_lower) ||
-                p.description.toLowerCase().includes(query_lower) ||
-                p.tech_stack.some((tech) => tech.toLowerCase().includes(query_lower)),
+                p.tech_stack?.some((tech) => tech.toLowerCase().includes(query_lower)) ||
+                (p.repo_languages && Object.keys(p.repo_languages).some(lang => lang.toLowerCase().includes(query_lower))),
             )
           }
 
           // Filter by selected technologies
-          if (selectedTechs.length > 0) {
-            projectsData = projectsData.filter((p) => selectedTechs.some((tech) => p.tech_stack.includes(tech)))
-          }
+          projectsData = projectsData.filter((p) =>
+            selectedTechs.some((tech) =>
+              p.tech_stack?.includes(tech) || (p.repo_languages && Object.keys(p.repo_languages).includes(tech))
+            )
+          )
 
           // Sort by trending (view count or recent activity)
           if (sortBy === "trending") {
@@ -417,8 +420,9 @@ export default function DiscoverPage() {
 
         snapshot.docs.forEach((doc) => {
           const project = doc.data() as Project
-          if (project.tech_stack) {
-            project.tech_stack.forEach((tech) => {
+          const langs = project.tech_stack || (project.repo_languages ? Object.keys(project.repo_languages) : [])
+          if (langs.length > 0) {
+            langs.forEach((tech) => {
               languageCount[tech] = (languageCount[tech] || 0) + 1
             })
           }
@@ -624,7 +628,7 @@ export default function DiscoverPage() {
                               {project.visibility === "private" && <Lock className="w-4 h-4 text-muted-foreground" />}
                             </div>
                             <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
-                            <TechBadgeList items={project.tech_stack} max={5} className="mb-4" />
+                            <TechBadgeList items={project.tech_stack || (project.repo_languages ? Object.keys(project.repo_languages) : [])} max={5} className="mb-4" />
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
                               <div className="flex items-center gap-2">
                                 <Avatar className="w-5 h-5">
@@ -879,7 +883,7 @@ export default function DiscoverPage() {
                           {project.visibility === "private" && <Lock className="w-4 h-4 text-muted-foreground" />}
                         </div>
                         <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
-                        <TechBadgeList items={project.tech_stack} max={9} className="mb-4" />
+                        <TechBadgeList items={project.tech_stack || (project.repo_languages ? Object.keys(project.repo_languages) : [])} max={9} className="mb-4" />
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <Avatar className="w-5 h-5">

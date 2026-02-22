@@ -35,6 +35,7 @@ interface Project {
   title: string
   description: string
   tech_stack: string[]
+  repo_languages?: Record<string, number>
 }
 
 export default function ProfilePage() {
@@ -351,7 +352,7 @@ export default function ProfilePage() {
                       <div className="p-3 md:p-4 border border-border rounded-lg hover:border-primary transition-colors cursor-pointer">
                         <h4 className="font-semibold text-foreground mb-2 text-sm md:text-base">{project.title}</h4>
                         <p className="text-xs md:text-sm text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
-                        <TechBadgeList items={project.tech_stack} max={6} />
+                        <TechBadgeList items={project.tech_stack || (project.repo_languages ? Object.keys(project.repo_languages) : [])} max={6} />
                       </div>
                     </Link>
                   ))}

@@ -14,30 +14,7 @@ import { UniversalNav } from "@/components/universal-nav"
 import { ProjectImageUploadButton } from "@/components/ProjectImageUploadButton"
 import { Briefcase } from "lucide-react"
 
-const TECH_OPTIONS = [
-  "JavaScript",
-  "TypeScript",
-  "React",
-  "Next.js",
-  "Vue.js",
-  "Angular",
-  "Node.js",
-  "Python",
-  "Java",
-  "C++",
-  "Go",
-  "Rust",
-  "PHP",
-  "Laravel",
-  "PostgreSQL",
-  "MongoDB",
-  "Firebase",
-  "AWS",
-  "Docker",
-  "Kubernetes",
-  "GraphQL",
-  "REST API",
-]
+
 
 export default function EditProjectPage() {
   const { user, loading } = useAuth()
@@ -47,7 +24,6 @@ export default function EditProjectPage() {
 
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
-  const [selectedTech, setSelectedTech] = useState<string[]>([])
   const [githubUrl, setGithubUrl] = useState("")
   const [liveUrl, setLiveUrl] = useState("")
   const [visibility, setVisibility] = useState<"public" | "private">("public")
@@ -58,7 +34,6 @@ export default function EditProjectPage() {
   const [projectImagePublicId, setProjectImagePublicId] = useState<string>("")
   const [collaborationType, setCollaborationType] = useState<"solo" | "authorized" | "open">("solo")
   const [syncGithubCollaborators, setSyncGithubCollaborators] = useState(false)
-  const [showAllTech, setShowAllTech] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -78,7 +53,6 @@ export default function EditProjectPage() {
           }
           setTitle(data.title)
           setDescription(data.description)
-          setSelectedTech(data.tech_stack || [])
           setGithubUrl(data.github_url || "")
           setLiveUrl(data.live_url || "")
           setVisibility(data.visibility)
@@ -107,9 +81,7 @@ export default function EditProjectPage() {
     return null
   }
 
-  const toggleTech = (tech: string) => {
-    setSelectedTech((prev) => (prev.includes(tech) ? prev.filter((t) => t !== tech) : [...prev, tech]))
-  }
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -126,7 +98,6 @@ export default function EditProjectPage() {
       await updateDoc(doc(db, "projects", projectId), {
         title,
         description,
-        tech_stack: selectedTech,
         github_url: githubUrl,
         live_url: liveUrl,
         visibility,
@@ -199,34 +170,7 @@ export default function EditProjectPage() {
             <Input type="url" value={liveUrl} onChange={(e) => setLiveUrl(e.target.value)} />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-4">Technology Stack</label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {(showAllTech ? TECH_OPTIONS : TECH_OPTIONS.slice(0, 9)).map((tech) => (
-                <button
-                  key={tech}
-                  type="button"
-                  onClick={() => toggleTech(tech)}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${selectedTech.includes(tech)
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background border-border text-foreground hover:border-primary"
-                    }`}
-                >
-                  {tech}
-                </button>
-              ))}
-            </div>
-            {!showAllTech && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setShowAllTech(true)}
-                className="mt-3 w-full text-muted-foreground hover:text-foreground"
-              >
-                See more options...
-              </Button>
-            )}
-          </div>
+
 
           <div>
             <label className="block text-sm font-medium mb-2">Project Image</label>
