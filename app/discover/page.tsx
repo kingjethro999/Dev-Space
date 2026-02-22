@@ -17,6 +17,7 @@ import { UniversalNav } from "@/components/universal-nav"
 import { Code2, MessageSquare, BookOpen, Users, TrendingUp, Lock, Grid3x3 } from "lucide-react"
 import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { TechBadgeList } from "@/components/tech-badge-list"
+import { TECH_FILTERS } from "@/lib/constants"
 
 interface Project {
   id: string
@@ -72,25 +73,7 @@ interface UserData {
 
 type ContentType = "all" | "projects" | "discussions" | "journeys" | "people" | "languages"
 
-const TECH_FILTERS = [
-  "JavaScript",
-  "TypeScript",
-  "React",
-  "Next.js",
-  "Vue.js",
-  "Node.js",
-  "Python",
-  "Java",
-  "Go",
-  "Rust",
-  "PHP",
-  "Laravel",
-  "PostgreSQL",
-  "MongoDB",
-  "Firebase",
-  "AWS",
-  "Docker",
-]
+
 
 export default function DiscoverPage() {
   const { user, loading } = useAuth()
@@ -106,6 +89,8 @@ export default function DiscoverPage() {
   const [userData, setUserData] = useState<UserData>({})
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "")
   const [selectedTechs, setSelectedTechs] = useState<string[]>([])
+  const [techSearch, setTechSearch] = useState("")
+  const filteredTechs = TECH_FILTERS.filter(t => t.toLowerCase().includes(techSearch.toLowerCase()))
   const [sortBy, setSortBy] = useState<"recent" | "trending">("recent")
   const [discoverLoading, setDiscoverLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -153,11 +138,13 @@ export default function DiscoverPage() {
           }
 
           // Filter by selected technologies
-          projectsData = projectsData.filter((p) =>
-            selectedTechs.some((tech) =>
-              p.tech_stack?.includes(tech) || (p.repo_languages && Object.keys(p.repo_languages).includes(tech))
+          if (selectedTechs.length > 0) {
+            projectsData = projectsData.filter((p) =>
+              selectedTechs.some((tech) =>
+                p.tech_stack?.includes(tech) || (p.repo_languages && Object.keys(p.repo_languages).includes(tech))
+              )
             )
-          )
+          }
 
           // Sort by trending (view count or recent activity)
           if (sortBy === "trending") {
@@ -582,13 +569,23 @@ export default function DiscoverPage() {
             {(activeTab === "all" || activeTab === "projects" || activeTab === "discussions" || activeTab === "journeys" || activeTab === "people") && (
               <div className="bg-card border border-border rounded-lg p-6">
                 <h3 className="font-bold mb-4">Technologies</h3>
-                <div className="space-y-2">
-                  {TECH_FILTERS.map((tech) => (
+                <Input
+                  type="text"
+                  placeholder="Filter technologies..."
+                  value={techSearch}
+                  onChange={(e) => setTechSearch(e.target.value)}
+                  className="mb-4 h-9 text-sm"
+                />
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-2 scrollbar-thin">
+                  {filteredTechs.map((tech) => (
                     <label key={tech} className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={selectedTechs.includes(tech)} onChange={() => toggleTech(tech)} />
-                      <span className="text-sm">{tech}</span>
+                      <span className="text-sm hover:text-primary transition-colors">{tech}</span>
                     </label>
                   ))}
+                  {filteredTechs.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">No technologies found.</p>
+                  )}
                 </div>
                 {selectedTechs.length > 0 && (
                   <Button
