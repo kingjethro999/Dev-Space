@@ -135,14 +135,14 @@ export default function SearchPage() {
               const isDeveloperSearch = /developer|user|profile|person/i.test(queryLower)
               const isProjectSearch = /project|repo|repository|github/i.test(queryLower)
               const isDiscussionSearch = /discussion|forum|post|question|thread/i.test(queryLower)
-              
+
               const primaryCategory = isDeveloperSearch ? 'users' : isProjectSearch ? 'projects' : isDiscussionSearch ? 'discussions' : null
               const otherCategories = {
                 projects: results.projects,
                 discussions: results.discussions,
                 users: results.users,
               }
-              
+
               // Show primary category first if detected
               if (primaryCategory === 'users' && results.users.length > 0) {
                 return (
@@ -177,11 +177,11 @@ export default function SearchPage() {
                         ))}
                       </div>
                     </div>
-                    
+
                     {(results.projects.length > 0 || results.discussions.length > 0) && (
                       <div>
                         <h2 className="text-xl font-bold text-foreground mb-6">Search Results in Other Categories</h2>
-                        
+
                         {results.projects.length > 0 && (
                           <div className="mb-8">
                             <div className="flex items-center gap-2 mb-4">
@@ -194,8 +194,8 @@ export default function SearchPage() {
                                   <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 transition-all cursor-pointer">
                                     <h3 className="text-lg font-bold text-white hover:text-blue-400 mb-2">{project.title}</h3>
                                     <p className="text-sm text-slate-300 mb-3 line-clamp-2">{project.description}</p>
-                                    {project.metadata.tech_stack && (
-                                      <TechBadgeList items={project.metadata.tech_stack} max={4} />
+                                    {(project.metadata.tech_stack || project.metadata.repo_languages) && (
+                                      <TechBadgeList items={project.metadata.tech_stack || Object.keys(project.metadata.repo_languages || {})} max={4} />
                                     )}
                                   </div>
                                 </Link>
@@ -232,7 +232,7 @@ export default function SearchPage() {
                   </>
                 )
               }
-              
+
               if (primaryCategory === 'projects' && results.projects.length > 0) {
                 return (
                   <>
@@ -247,19 +247,19 @@ export default function SearchPage() {
                             <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 transition-all cursor-pointer">
                               <h3 className="text-lg font-bold text-white hover:text-blue-400 mb-2">{project.title}</h3>
                               <p className="text-sm text-slate-300 mb-3 line-clamp-2">{project.description}</p>
-                              {project.metadata.tech_stack && (
-                                <TechBadgeList items={project.metadata.tech_stack} max={4} />
+                              {(project.metadata.tech_stack || project.metadata.repo_languages) && (
+                                <TechBadgeList items={project.metadata.tech_stack || Object.keys(project.metadata.repo_languages || {})} max={4} />
                               )}
                             </div>
                           </Link>
                         ))}
                       </div>
                     </div>
-                    
+
                     {(results.discussions.length > 0 || results.users.length > 0) && (
                       <div>
                         <h2 className="text-xl font-bold text-foreground mb-6">Search Results in Other Categories</h2>
-                        
+
                         {results.users.length > 0 && (
                           <div className="mb-8">
                             <div className="flex items-center gap-2 mb-4">
@@ -321,7 +321,7 @@ export default function SearchPage() {
                   </>
                 )
               }
-              
+
               if (primaryCategory === 'discussions' && results.discussions.length > 0) {
                 return (
                   <>
@@ -346,11 +346,11 @@ export default function SearchPage() {
                         ))}
                       </div>
                     </div>
-                    
+
                     {(results.projects.length > 0 || results.users.length > 0) && (
                       <div>
                         <h2 className="text-xl font-bold text-foreground mb-6">Search Results in Other Categories</h2>
-                        
+
                         {results.projects.length > 0 && (
                           <div className="mb-8">
                             <div className="flex items-center gap-2 mb-4">
@@ -363,8 +363,8 @@ export default function SearchPage() {
                                   <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 transition-all cursor-pointer">
                                     <h3 className="text-lg font-bold text-white hover:text-blue-400 mb-2">{project.title}</h3>
                                     <p className="text-sm text-slate-300 mb-3 line-clamp-2">{project.description}</p>
-                                    {project.metadata.tech_stack && (
-                                      <TechBadgeList items={project.metadata.tech_stack} max={4} />
+                                    {(project.metadata.tech_stack || project.metadata.repo_languages) && (
+                                      <TechBadgeList items={project.metadata.tech_stack || Object.keys(project.metadata.repo_languages || {})} max={4} />
                                     )}
                                   </div>
                                 </Link>
@@ -410,7 +410,7 @@ export default function SearchPage() {
                   </>
                 )
               }
-              
+
               // Default: show all categories without primary/secondary distinction
               return (
                 <>
@@ -426,8 +426,8 @@ export default function SearchPage() {
                             <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 transition-all cursor-pointer">
                               <h3 className="text-lg font-bold text-white hover:text-blue-400 mb-2">{project.title}</h3>
                               <p className="text-sm text-slate-300 mb-3 line-clamp-2">{project.description}</p>
-                              {project.metadata.tech_stack && (
-                                <TechBadgeList items={project.metadata.tech_stack} max={4} />
+                              {(project.metadata.tech_stack || project.metadata.repo_languages) && (
+                                <TechBadgeList items={project.metadata.tech_stack || Object.keys(project.metadata.repo_languages || {})} max={4} />
                               )}
                             </div>
                           </Link>

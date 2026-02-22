@@ -23,6 +23,7 @@ interface Project {
   title: string
   description: string
   tech_stack: string[]
+  repo_languages?: Record<string, number>
   github_url: string
   visibility: "public" | "private"
   created_at: any
@@ -131,7 +132,7 @@ export default function ProjectsPage() {
               <h1 className="text-3xl font-bold text-foreground mb-2">Projects</h1>
               <p className="text-muted-foreground">Discover amazing projects from the community</p>
             </div>
-            
+
           </div>
           <Link href="/projects/new">
             <Button>Create Project</Button>
@@ -155,8 +156,8 @@ export default function ProjectsPage() {
           </div>
         ) : (
           <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {projects.slice((page-1)*pageSize, page*pageSize).map((project) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.slice((page - 1) * pageSize, page * pageSize).map((project) => (
                 <div key={project.id} className="bg-card border border-border rounded-lg p-0 hover:border-primary transition-colors cursor-pointer h-full flex flex-col overflow-hidden group relative">
                   {/* Micro actions top right */}
                   <div className="absolute top-3 right-3 z-10 flex gap-1 bg-card/90 rounded">
@@ -192,7 +193,7 @@ export default function ProjectsPage() {
                       <div className="p-6 flex flex-col flex-1">
                         <h3 className="text-lg font-bold text-foreground mb-2">{project.title}</h3>
                         <p className="text-sm text-muted-foreground mb-4 flex-grow">{project.description}</p>
-                        <TechBadgeList items={project.tech_stack} max={8} className="mb-4" />
+                        <TechBadgeList items={project.tech_stack || (project.repo_languages ? Object.keys(project.repo_languages) : [])} max={8} className="mb-4" />
                         <EmojiReactions parentId={project.id} collectionName="projects" />
                         <div className="flex items-center justify-between mt-3">
                           <div className="flex items-center gap-2">
@@ -200,7 +201,7 @@ export default function ProjectsPage() {
                               <AvatarImage src={userData[project.owner_id]?.avatar_url || "/placeholder.svg"} />
                               <AvatarFallback>{(userData[project.owner_id]?.username || "U").slice(0, 2).toUpperCase()}</AvatarFallback>
                             </Avatar>
-                            <span 
+                            <span
                               onClick={(e) => {
                                 e.stopPropagation()
                                 router.push(`/profile/${project.owner_id}`)
@@ -209,29 +210,29 @@ export default function ProjectsPage() {
                             >
                               {userData[project.owner_id]?.username || "Unknown"}
                             </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {project.created_at?.toDate?.()?.toLocaleDateString() || "Recently"}
-                  </p>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {project.created_at?.toDate?.()?.toLocaleDateString() || "Recently"}
+                          </p>
                         </div>
                       </div>
+                    </div>
+                  </Link>
                 </div>
-              </Link>
-                </div>
-            ))}
-          </div>
+              ))}
+            </div>
             {Math.ceil(projects.length / pageSize) > 1 && (
               <div className="pt-6">
                 <Pagination>
                   <PaginationContent>
                     <PaginationItem>
-                      <PaginationPrevious onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p-1)) }} />
+                      <PaginationPrevious onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)) }} />
                     </PaginationItem>
                     <PaginationItem>
                       <span className="px-3 text-sm text-muted-foreground">Page {page} of {Math.ceil(projects.length / pageSize)}</span>
                     </PaginationItem>
                     <PaginationItem>
-                      <PaginationNext onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(Math.ceil(projects.length / pageSize), p+1)) }} />
+                      <PaginationNext onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(Math.ceil(projects.length / pageSize), p + 1)) }} />
                     </PaginationItem>
                   </PaginationContent>
                 </Pagination>

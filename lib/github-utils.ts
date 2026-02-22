@@ -716,3 +716,27 @@ export async function checkUserIsCollaborator(
   }
 }
 
+export function getLanguageColor(language: string) {
+  const colors: { [key: string]: string } = {
+    'JavaScript': 'bg-yellow-500',
+    'TypeScript': 'bg-blue-500',
+    'Python': 'bg-green-500',
+    'Java': 'bg-orange-500',
+    'C++': 'bg-blue-600',
+    'C#': 'bg-purple-500',
+    'Go': 'bg-cyan-500',
+    'Rust': 'bg-orange-600',
+    'PHP': 'bg-indigo-500',
+    'Ruby': 'bg-red-500',
+    'Swift': 'bg-orange-400',
+    'Kotlin': 'bg-purple-600',
+    'Dart': 'bg-blue-400',
+    'HTML': 'bg-orange-500',
+    'CSS': 'bg-blue-500',
+    'Vue': 'bg-green-400',
+    'React': 'bg-cyan-400',
+    'Angular': 'bg-red-500',
+  }
+  return colors[language] || 'bg-gray-500'
+}
+

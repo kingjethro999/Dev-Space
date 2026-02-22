@@ -7,20 +7,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { 
-  Github, 
-  Star, 
-  GitFork, 
-  Eye, 
-  Lock, 
-  Globe, 
-  Search, 
-  Code, 
+import {
+  Github,
+  Star,
+  GitFork,
+  Eye,
+  Lock,
+  Globe,
+  Search,
+  Code,
   Calendar,
   ExternalLink,
   CheckCircle
 } from "lucide-react"
-import { getUserRepositories, getRepositoryDetails } from "@/lib/github-utils"
+import { getUserRepositories, getRepositoryDetails, getLanguageColor } from "@/lib/github-utils"
 import { useAuth } from "@/lib/auth-context"
 import { formatDistanceToNow } from "date-fns"
 
@@ -111,29 +111,7 @@ export function RepositorySelector({ isOpen, onClose, onSelect, selectedReposito
     onClose()
   }
 
-  const getLanguageColor = (language: string) => {
-    const colors: { [key: string]: string } = {
-      'JavaScript': 'bg-yellow-500',
-      'TypeScript': 'bg-blue-500',
-      'Python': 'bg-green-500',
-      'Java': 'bg-orange-500',
-      'C++': 'bg-blue-600',
-      'C#': 'bg-purple-500',
-      'Go': 'bg-cyan-500',
-      'Rust': 'bg-orange-600',
-      'PHP': 'bg-indigo-500',
-      'Ruby': 'bg-red-500',
-      'Swift': 'bg-orange-400',
-      'Kotlin': 'bg-purple-600',
-      'Dart': 'bg-blue-400',
-      'HTML': 'bg-orange-500',
-      'CSS': 'bg-blue-500',
-      'Vue': 'bg-green-400',
-      'React': 'bg-cyan-400',
-      'Angular': 'bg-red-500',
-    }
-    return colors[language] || 'bg-gray-500'
-  }
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -190,11 +168,10 @@ export function RepositorySelector({ isOpen, onClose, onSelect, selectedReposito
                   {filteredRepos.map((repo) => (
                     <Card
                       key={repo.id}
-                      className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
-                        selectedRepository?.id === repo.id 
-                          ? 'ring-2 ring-primary bg-primary/5' 
+                      className={`cursor-pointer transition-all duration-200 hover:shadow-md ${selectedRepository?.id === repo.id
+                          ? 'ring-2 ring-primary bg-primary/5'
                           : 'hover:border-primary/50'
-                      }`}
+                        }`}
                       onClick={() => handleSelect(repo)}
                     >
                       <CardContent className="p-4">
@@ -213,7 +190,7 @@ export function RepositorySelector({ isOpen, onClose, onSelect, selectedReposito
                                 <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
                               )}
                             </div>
-                            
+
                             {repo.description && (
                               <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                                 {repo.description}
@@ -227,22 +204,22 @@ export function RepositorySelector({ isOpen, onClose, onSelect, selectedReposito
                                   <span>{repo.language}</span>
                                 </div>
                               )}
-                              
+
                               <div className="flex items-center gap-1.5">
                                 <Star className="w-3.5 h-3.5" />
                                 <span>{repo.stars}</span>
                               </div>
-                              
+
                               <div className="flex items-center gap-1.5">
                                 <GitFork className="w-3.5 h-3.5" />
                                 <span>{repo.forks}</span>
                               </div>
-                              
+
                               <div className="flex items-center gap-1.5">
                                 <Eye className="w-3.5 h-3.5" />
                                 <span>{repo.watchers}</span>
                               </div>
-                              
+
                               <div className="flex items-center gap-1.5">
                                 <Calendar className="w-3.5 h-3.5" />
                                 <span>Updated {formatDistanceToNow(new Date(repo.updatedAt), { addSuffix: true })}</span>

@@ -42,7 +42,7 @@ export async function searchProjects(
       const data = doc.data()
       const titleMatch = data.title.toLowerCase().includes(searchLower)
       const descMatch = data.description.toLowerCase().includes(searchLower)
-      
+
       // Enhanced tech stack matching - handle variations like "node" matching "Node.js"
       // Also handle parsed terms for better matching
       const parsedTerms = searchTerm
@@ -53,21 +53,32 @@ export async function searchProjects(
         .trim()
         .split(/\s+/)
         .filter(term => term.length > 0)
-      
+
       const techMatch = parsedTerms.some(term => {
         return data.tech_stack?.some((tech: string) => {
           const techLower = tech.toLowerCase()
           return techLower.includes(term) || term.includes(techLower) ||
-                 techLower.replace(/[._-\s]/g, '').includes(term.replace(/[._-\s]/g, '')) ||
-                 term.includes(techLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, '')) ||
-                 techLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, '') === term
-        })
+            techLower.replace(/[._-\s]/g, '').includes(term.replace(/[._-\s]/g, '')) ||
+            term.includes(techLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, '')) ||
+            techLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, '') === term
+        }) || (data.repo_languages && Object.keys(data.repo_languages).some((tech: string) => {
+          const techLower = tech.toLowerCase()
+          return techLower.includes(term) || term.includes(techLower) ||
+            techLower.replace(/[._-\s]/g, '').includes(term.replace(/[._-\s]/g, '')) ||
+            term.includes(techLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, '')) ||
+            techLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, '') === term
+        }))
       }) || data.tech_stack?.some((tech: string) => {
         const techLower = tech.toLowerCase()
         return techLower.includes(searchLower) || searchLower.includes(techLower) ||
-               techLower.replace(/[._-]/g, '').includes(searchLower.replace(/[._-]/g, '')) ||
-               searchLower.includes(techLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, ''))
-      })
+          techLower.replace(/[._-]/g, '').includes(searchLower.replace(/[._-]/g, '')) ||
+          searchLower.includes(techLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, ''))
+      }) || (data.repo_languages && Object.keys(data.repo_languages).some((tech: string) => {
+        const techLower = tech.toLowerCase()
+        return techLower.includes(searchLower) || searchLower.includes(techLower) ||
+          techLower.replace(/[._-]/g, '').includes(searchLower.replace(/[._-]/g, '')) ||
+          searchLower.includes(techLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, ''))
+      }))
 
       if (titleMatch || descMatch || techMatch) {
         let relevance = 0
@@ -82,6 +93,7 @@ export async function searchProjects(
           description: data.description,
           metadata: {
             tech_stack: data.tech_stack,
+            repo_languages: data.repo_languages,
             owner_id: data.owner_id,
             github_url: data.github_url,
           },
@@ -151,7 +163,7 @@ export async function searchUsers(searchTerm: string, limitParam = 20) {
       .trim()
       .split(/\s+/)
       .filter(term => term.length > 0)
-    
+
     const searchLower = parsedTerms.join(' ') || searchTerm.toLowerCase()
     const usersRef = collection(db, "users")
     const q = query(usersRef, firestoreLimit(limitParam))
@@ -163,24 +175,24 @@ export async function searchUsers(searchTerm: string, limitParam = 20) {
       const data = doc.data()
       const usernameMatch = data.username.toLowerCase().includes(searchLower)
       const bioMatch = data.bio?.toLowerCase().includes(searchLower)
-      
+
       // Enhanced skill matching - check if any search term matches any skill
       // This helps with searches like "node" matching "Node.js" or "developers with node skills"
       const skillsMatch = parsedTerms.some(term => {
         return data.skills?.some((skill: string) => {
           const skillLower = skill.toLowerCase()
           // Check various matching strategies
-          return skillLower.includes(term) || 
-                 term.includes(skillLower) ||
-                 skillLower.replace(/[._-\s]/g, '').includes(term.replace(/[._-\s]/g, '')) ||
-                 term.includes(skillLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, '')) ||
-                 skillLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, '') === term
+          return skillLower.includes(term) ||
+            term.includes(skillLower) ||
+            skillLower.replace(/[._-\s]/g, '').includes(term.replace(/[._-\s]/g, '')) ||
+            term.includes(skillLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, '')) ||
+            skillLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, '') === term
         })
       }) || (data.skills?.some((skill: string) => {
         const skillLower = skill.toLowerCase()
         return skillLower.includes(searchLower) || searchLower.includes(skillLower) ||
-               skillLower.replace(/[._-]/g, '').includes(searchLower.replace(/[._-]/g, '')) ||
-               searchLower.includes(skillLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, ''))
+          skillLower.replace(/[._-]/g, '').includes(searchLower.replace(/[._-]/g, '')) ||
+          searchLower.includes(skillLower.replace(/\.js$|\.ts$|\.jsx$|\.tsx$/g, ''))
       }))
 
       if (usernameMatch || bioMatch || skillsMatch) {
