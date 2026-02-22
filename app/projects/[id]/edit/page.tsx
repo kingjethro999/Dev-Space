@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { UniversalNav } from "@/components/universal-nav"
 import { ProjectImageUploadButton } from "@/components/ProjectImageUploadButton"
-import { Briefcase } from "lucide-react"
+import { Briefcase, X } from "lucide-react"
+import { TECH_FILTERS } from "@/lib/constants"
 
 
 
@@ -34,6 +35,14 @@ export default function EditProjectPage() {
   const [projectImagePublicId, setProjectImagePublicId] = useState<string>("")
   const [collaborationType, setCollaborationType] = useState<"solo" | "authorized" | "open">("solo")
   const [syncGithubCollaborators, setSyncGithubCollaborators] = useState(false)
+
+  const [selectedTech, setSelectedTech] = useState<string[]>([])
+  const [techSearch, setTechSearch] = useState("")
+  const filteredTechs = TECH_FILTERS.filter(t => t.toLowerCase().includes(techSearch.toLowerCase()))
+
+  const toggleTech = (tech: string) => {
+    setSelectedTech((prev) => (prev.includes(tech) ? prev.filter((t) => t !== tech) : [...prev, tech]))
+  }
 
   useEffect(() => {
     if (!loading && !user) {
@@ -60,6 +69,7 @@ export default function EditProjectPage() {
           setProjectImagePublicId(data.project_image_public_id || "")
           setCollaborationType(data.collaboration_type || "solo")
           setSyncGithubCollaborators(!!data.collaboration_sync_github)
+          setSelectedTech(data.tech_stack || [])
         }
       } catch (error) {
         console.error("Error fetching project:", error)
@@ -103,6 +113,7 @@ export default function EditProjectPage() {
         visibility,
         project_image_url: projectImageUrl || null,
         project_image_public_id: projectImagePublicId || null,
+        tech_stack: selectedTech,
         collaboration_type: collaborationType,
         collaboration_sync_github: collaborationType === "authorized" ? syncGithubCollaborators : false,
         updated_at: new Date(),
@@ -171,6 +182,45 @@ export default function EditProjectPage() {
           </div>
 
 
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Technologies & Frameworks (Optional)</label>
+            <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-4">
+              <Input
+                type="text"
+                placeholder="Search technologies..."
+                value={techSearch}
+                onChange={(e) => setTechSearch(e.target.value)}
+                className="h-9 text-sm"
+              />
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
+                {filteredTechs.map((tech) => (
+                  <label key={tech} className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={selectedTech.includes(tech)} onChange={() => toggleTech(tech)} />
+                    <span className="text-sm hover:text-primary transition-colors">{tech}</span>
+                  </label>
+                ))}
+                {filteredTechs.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No technologies found.</p>
+                )}
+              </div>
+              {selectedTech.length > 0 && (
+                <div className="pt-4 border-t border-border/50">
+                  <p className="text-sm font-medium mb-2">Selected ({selectedTech.length}):</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTech.map((tech) => (
+                      <span key={tech} className="bg-primary/20 text-primary whitespace-nowrap px-2 py-1 rounded text-xs flex items-center gap-1">
+                        {tech}
+                        <button type="button" onClick={() => toggleTech(tech)} className="hover:text-destructive">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           <div>
             <label className="block text-sm font-medium mb-2">Project Image</label>

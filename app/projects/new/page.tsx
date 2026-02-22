@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { RepositorySelector } from "@/components/repository-selector"
+import { TECH_FILTERS } from "@/lib/constants"
 import { parseGitHubUrl, getRepositoryDetails, getRepositoryLanguages, getLanguageColor } from "@/lib/github-utils"
 import Link from "next/link"
 import { Github, ExternalLink, Star, GitFork, Eye, Lock, Globe, AlertCircle, Briefcase, Search, X, UserPlus } from "lucide-react"
@@ -44,6 +45,9 @@ export default function NewProjectPage() {
   const router = useRouter()
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
+  const [selectedTech, setSelectedTech] = useState<string[]>([])
+  const [techSearch, setTechSearch] = useState("")
+  const filteredTechs = TECH_FILTERS.filter(t => t.toLowerCase().includes(techSearch.toLowerCase()))
   const [liveUrl, setLiveUrl] = useState("")
   const [visibility, setVisibility] = useState<"public" | "private">("public")
   const [saving, setSaving] = useState(false)
@@ -147,6 +151,10 @@ export default function NewProjectPage() {
       setRepoLanguages({})
     }
   }, [selectedRepository])
+
+  const toggleTech = (tech: string) => {
+    setSelectedTech((prev) => (prev.includes(tech) ? prev.filter((t) => t !== tech) : [...prev, tech]))
+  }
 
   const handleManualRepoFetch = async () => {
     if (!repoUrlInput.trim() || !user) return
@@ -329,6 +337,7 @@ export default function NewProjectPage() {
         hasJourney: enableJourney,
         project_image_url: projectImageUrl || null,
         project_image_public_id: projectImagePublicId || null,
+        tech_stack: selectedTech,
         collaboration_type: collaborationType,
         collaboration_sync_github: collaborationType === "authorized" ? syncGithubCollaborators : false,
         created_at: serverTimestamp(),
@@ -601,6 +610,45 @@ export default function NewProjectPage() {
               </div>
             </div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Technologies & Frameworks (Optional)</label>
+            <div className="bg-card border border-border rounded-lg p-4 flex flex-col gap-4">
+              <Input
+                type="text"
+                placeholder="Search technologies..."
+                value={techSearch}
+                onChange={(e) => setTechSearch(e.target.value)}
+                className="h-9 text-sm"
+              />
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-2 scrollbar-thin">
+                {filteredTechs.map((tech) => (
+                  <label key={tech} className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={selectedTech.includes(tech)} onChange={() => toggleTech(tech)} />
+                    <span className="text-sm hover:text-primary transition-colors">{tech}</span>
+                  </label>
+                ))}
+                {filteredTechs.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No technologies found.</p>
+                )}
+              </div>
+              {selectedTech.length > 0 && (
+                <div className="pt-4 border-t border-border/50">
+                  <p className="text-sm font-medium mb-2">Selected ({selectedTech.length}):</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTech.map((tech) => (
+                      <span key={tech} className="bg-primary/20 text-primary whitespace-nowrap px-2 py-1 rounded text-xs flex items-center gap-1">
+                        {tech}
+                        <button type="button" onClick={() => toggleTech(tech)} className="hover:text-destructive">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           <div>
             <label className="block text-sm font-medium mb-2">Visibility</label>
