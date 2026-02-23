@@ -1,5 +1,10 @@
 "use client"
 
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
+import 'github-markdown-css/github-markdown.css'
+
 import { useAuth } from "@/lib/auth-context"
 import { useRouter, useParams } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -9,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
 import { Users, Code, Github, BookOpen, Share2, Copy, Edit, Trash2 } from "lucide-react"
-import { getGitHubRepoStats, parseGitHubUrl, getLanguageColor } from "@/lib/github-utils"
+import { getGitHubRepoStats, parseGitHubUrl, getLanguageColor, getRepoContributors, getRepoReadme } from "@/lib/github-utils"
 import { UniversalNav } from "@/components/universal-nav"
 import { ShareToChatDialog } from "@/components/share-to-chat-dialog"
 import { EmojiReactions } from "@/components/emoji-reactions"
@@ -66,6 +71,8 @@ export default function ProjectDetailPage() {
   const [projectLoading, setProjectLoading] = useState(true)
   const [tasks, setTasks] = useState<Task[]>([])
   const [githubStats, setGithubStats] = useState<GitHubStats | null>(null)
+  const [contributors, setContributors] = useState<{ login: string; avatar_url: string; html_url: string; contributions: number }[]>([])
+  const [readme, setReadme] = useState<string | null>(null)
   const [hasJourney, setHasJourney] = useState<boolean>(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [shareText, setShareText] = useState("")
@@ -76,6 +83,7 @@ export default function ProjectDetailPage() {
     setShareText(`Check out this project: ${url}`)
     setShareOpen(true)
   }
+
   const handleCopy = () => {
     const url = typeof window !== 'undefined' ? `${window.location.origin}/projects/${projectId}` : `/projects/${projectId}`
     navigator.clipboard.writeText(url)
@@ -149,6 +157,16 @@ export default function ProjectDetailPage() {
                 language: data.language || "Unknown",
               })
               statsFetched = true
+
+              // Fetch contributors
+              if (user?.uid) {
+                const contribs = await getRepoContributors(owner, repo, user.uid)
+                setContributors(contribs.slice(0, 5))
+
+                // Fetch README
+                const readmeData = await getRepoReadme(owner, repo, user.uid)
+                setReadme(readmeData)
+              }
             }
           }
         } catch (error) {
@@ -330,7 +348,7 @@ export default function ProjectDetailPage() {
                 <Github className="w-5 h-5 text-foreground" />
                 <h3 className="font-semibold text-foreground">GitHub Stats</h3>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-4 mb-4">
                 <div>
                   <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{githubStats.stars}</div>
                   <div className="text-xs text-muted-foreground">Stars</div>
@@ -344,6 +362,28 @@ export default function ProjectDetailPage() {
                   <div className="text-xs text-muted-foreground">Watchers</div>
                 </div>
               </div>
+
+              {/* Contributors Grid */}
+              {contributors.length > 0 && (
+                <div className="pt-4 border-t border-border">
+                  <h4 className="text-sm font-semibold mb-3">Contributors ({contributors.length})</h4>
+                  <div className="flex flex-wrap gap-3">
+                    {contributors.map(c => (
+                      <a
+                        key={c.login}
+                        href={c.html_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 hover:bg-accent/50 p-1.5 pr-3 rounded-full border border-border transition-colors group"
+                        title={`${c.login} (${c.contributions} commits)`}
+                      >
+                        <img src={c.avatar_url} alt={c.login} className="w-6 h-6 rounded-full" />
+                        <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">{c.login}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -396,6 +436,22 @@ export default function ProjectDetailPage() {
             <p>Created {project.created_at?.toDate?.()?.toLocaleDateString() || "recently"}</p>
           </div>
         </div>
+
+        {/* README Section */}
+        {readme && (
+          <div className="mt-8 bg-card border border-border rounded-lg p-8">
+            <div className="flex items-center gap-2 mb-6 border-b border-border pb-4">
+              <BookOpen className="w-5 h-5 text-foreground" />
+              <h2 className="text-2xl font-bold">README.md</h2>
+            </div>
+
+            <div className="markdown-body !bg-transparent !text-foreground dark:!text-slate-300">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                {readme}
+              </ReactMarkdown>
+            </div>
+          </div>
+        )}
 
         <div className="mt-8 bg-card border border-border rounded-lg p-8">
           <div className="flex items-center justify-between mb-6">

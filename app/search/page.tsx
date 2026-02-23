@@ -188,9 +188,9 @@ export default function SearchPage() {
                               <Code2 className="w-5 h-5 text-blue-400" />
                               <h3 className="text-lg font-bold text-foreground">Projects ({results.projects.length})</h3>
                             </div>
-                            <div className="space-y-4">
+                            <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6 md:space-y-0">
                               {results.projects.map((project) => (
-                                <Link key={project.id} href={`/projects/${project.id}`}>
+                                <Link key={project.id} href={`/projects/${project.id}`} className="block break-inside-avoid mt-6 first:mt-0 md:mt-0">
                                   <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 transition-all cursor-pointer">
                                     <h3 className="text-lg font-bold text-white hover:text-blue-400 mb-2">{project.title}</h3>
                                     <p className="text-sm text-slate-300 mb-3 line-clamp-2">{project.description}</p>
@@ -241,9 +241,9 @@ export default function SearchPage() {
                         <Code2 className="w-5 h-5 text-blue-400" />
                         <h2 className="text-2xl font-bold text-foreground">Projects ({results.projects.length})</h2>
                       </div>
-                      <div className="space-y-4">
+                      <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6 md:space-y-0">
                         {results.projects.map((project) => (
-                          <Link key={project.id} href={`/projects/${project.id}`}>
+                          <Link key={project.id} href={`/projects/${project.id}`} className="block break-inside-avoid mt-6 first:mt-0 md:mt-0">
                             <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20 transition-all cursor-pointer">
                               <h3 className="text-lg font-bold text-white hover:text-blue-400 mb-2">{project.title}</h3>
                               <p className="text-sm text-slate-300 mb-3 line-clamp-2">{project.description}</p>

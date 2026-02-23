@@ -156,9 +156,9 @@ export default function ProjectsPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6 md:space-y-0">
               {projects.slice((page - 1) * pageSize, page * pageSize).map((project) => (
-                <div key={project.id} className="bg-card border border-border rounded-lg p-0 hover:border-primary transition-colors cursor-pointer h-full flex flex-col overflow-hidden group relative">
+                <div key={project.id} className="break-inside-avoid mt-6 first:mt-0 md:mt-0 bg-card border border-border rounded-lg p-0 hover:border-primary transition-colors cursor-pointer flex flex-col overflow-hidden group relative">
                   {/* Micro actions top right */}
                   <div className="absolute top-3 right-3 z-10 flex gap-1 bg-card/90 rounded">
                     <Button variant="ghost" size="icon-sm" onClick={() => handleShare(project.id)}><Share2 className="w-4 h-4" /><span className="sr-only">Share to chat</span></Button>
