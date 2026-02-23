@@ -1,5 +1,5 @@
 import { realtimeDb } from "@/lib/firebase"
-import { ref, push, set, onValue, off, update, remove } from "firebase/database"
+import { ref, push, set, onValue, off, update, remove, child } from "firebase/database"
 
 export interface PostEngagement {
   likes: number
@@ -27,7 +27,7 @@ export interface Like {
 // Real-time post engagement functions
 export function subscribeToPostEngagement(postId: string, callback: (engagement: PostEngagement) => void) {
   const engagementRef = ref(realtimeDb, `posts/${postId}/engagement`)
-  
+
   onValue(engagementRef, (snapshot) => {
     const data = snapshot.val()
     if (data) {
@@ -48,19 +48,19 @@ export function subscribeToPostEngagement(postId: string, callback: (engagement:
 export async function likePost(postId: string, userId: string) {
   const likeRef = ref(realtimeDb, `posts/${postId}/likes/${userId}`)
   const engagementRef = ref(realtimeDb, `posts/${postId}/engagement/likes`)
-  
+
   try {
     // Add like
     await set(likeRef, {
       userId,
       timestamp: Date.now()
     })
-    
+
     // Increment like count
     await update(engagementRef, {
       [Date.now()]: 1
     })
-    
+
     return true
   } catch (error) {
     console.error('Error liking post:', error)
@@ -71,16 +71,16 @@ export async function likePost(postId: string, userId: string) {
 export async function unlikePost(postId: string, userId: string) {
   const likeRef = ref(realtimeDb, `posts/${postId}/likes/${userId}`)
   const engagementRef = ref(realtimeDb, `posts/${postId}/engagement/likes`)
-  
+
   try {
     // Remove like
     await remove(likeRef)
-    
+
     // Decrement like count
     await update(engagementRef, {
       [Date.now()]: -1
     })
-    
+
     return true
   } catch (error) {
     console.error('Error unliking post:', error)
@@ -91,19 +91,19 @@ export async function unlikePost(postId: string, userId: string) {
 export async function sharePost(postId: string, userId: string) {
   const shareRef = ref(realtimeDb, `posts/${postId}/shares/${userId}`)
   const engagementRef = ref(realtimeDb, `posts/${postId}/engagement/shares`)
-  
+
   try {
     // Add share
     await set(shareRef, {
       userId,
       timestamp: Date.now()
     })
-    
+
     // Increment share count
     await update(engagementRef, {
       [Date.now()]: 1
     })
-    
+
     return true
   } catch (error) {
     console.error('Error sharing post:', error)
@@ -113,7 +113,7 @@ export async function sharePost(postId: string, userId: string) {
 
 export async function incrementViewCount(postId: string) {
   const viewRef = ref(realtimeDb, `posts/${postId}/engagement/views`)
-  
+
   try {
     await update(viewRef, {
       [Date.now()]: 1
@@ -128,7 +128,7 @@ export async function incrementViewCount(postId: string) {
 // Real-time comments functions
 export function subscribeToComments(postId: string, callback: (comments: Comment[]) => void) {
   const commentsRef = ref(realtimeDb, `posts/${postId}/comments`)
-  
+
   onValue(commentsRef, (snapshot) => {
     const data = snapshot.val()
     if (data) {
@@ -148,7 +148,7 @@ export function subscribeToComments(postId: string, callback: (comments: Comment
 export async function addComment(postId: string, userId: string, username: string, content: string, avatarUrl?: string) {
   const commentsRef = ref(realtimeDb, `posts/${postId}/comments`)
   const engagementRef = ref(realtimeDb, `posts/${postId}/engagement/comments`)
-  
+
   try {
     const newCommentRef = push(commentsRef)
     await set(newCommentRef, {
@@ -159,12 +159,12 @@ export async function addComment(postId: string, userId: string, username: strin
       timestamp: Date.now(),
       likes: 0
     })
-    
+
     // Increment comment count
     await update(engagementRef, {
       [Date.now()]: 1
     })
-    
+
     return newCommentRef.key
   } catch (error) {
     console.error('Error adding comment:', error)
@@ -174,7 +174,7 @@ export async function addComment(postId: string, userId: string, username: strin
 
 export async function likeComment(postId: string, commentId: string, userId: string) {
   const likeRef = ref(realtimeDb, `posts/${postId}/comments/${commentId}/likes/${userId}`)
-  
+
   try {
     await set(likeRef, {
       userId,
@@ -189,7 +189,7 @@ export async function likeComment(postId: string, commentId: string, userId: str
 
 export async function unlikeComment(postId: string, commentId: string, userId: string) {
   const likeRef = ref(realtimeDb, `posts/${postId}/comments/${commentId}/likes/${userId}`)
-  
+
   try {
     await remove(likeRef)
     return true
@@ -212,7 +212,7 @@ export interface Message {
 
 export function subscribeToMessages(userId: string, otherUserId: string, callback: (messages: Message[]) => void) {
   const messagesRef = ref(realtimeDb, `messages/${userId}/${otherUserId}`)
-  
+
   onValue(messagesRef, (snapshot) => {
     const data = snapshot.val()
     if (data) {
@@ -232,7 +232,7 @@ export function subscribeToMessages(userId: string, otherUserId: string, callbac
 export async function sendMessage(senderId: string, receiverId: string, content: string, type: 'text' | 'image' | 'file' = 'text') {
   const senderRef = ref(realtimeDb, `messages/${senderId}/${receiverId}`)
   const receiverRef = ref(realtimeDb, `messages/${receiverId}/${senderId}`)
-  
+
   try {
     const messageData = {
       senderId,
@@ -242,13 +242,13 @@ export async function sendMessage(senderId: string, receiverId: string, content:
       read: false,
       type
     }
-    
+
     const newMessageRef = push(senderRef)
     await set(newMessageRef, messageData)
-    
+
     // Also add to receiver's messages
-    await set(receiverRef.child(newMessageRef.key!), messageData)
-    
+    await set(child(receiverRef, newMessageRef.key!), messageData)
+
     return newMessageRef.key
   } catch (error) {
     console.error('Error sending message:', error)
@@ -258,7 +258,7 @@ export async function sendMessage(senderId: string, receiverId: string, content:
 
 export async function markMessageAsRead(userId: string, otherUserId: string, messageId: string) {
   const messageRef = ref(realtimeDb, `messages/${userId}/${otherUserId}/${messageId}`)
-  
+
   try {
     await update(messageRef, { read: true })
     return true
@@ -282,7 +282,7 @@ export interface Notification {
 
 export function subscribeToNotifications(userId: string, callback: (notifications: Notification[]) => void) {
   const notificationsRef = ref(realtimeDb, `notifications/${userId}`)
-  
+
   onValue(notificationsRef, (snapshot) => {
     const data = snapshot.val()
     if (data) {
@@ -301,7 +301,7 @@ export function subscribeToNotifications(userId: string, callback: (notification
 
 export async function createNotification(userId: string, type: Notification['type'], title: string, message: string, relatedId?: string) {
   const notificationsRef = ref(realtimeDb, `notifications/${userId}`)
-  
+
   try {
     const newNotificationRef = push(notificationsRef)
     await set(newNotificationRef, {
@@ -313,14 +313,14 @@ export async function createNotification(userId: string, type: Notification['typ
       read: false,
       relatedId
     })
-    
+
     // Send email notification for important events
     if (type === 'follow' || type === 'message' || type === 'mention') {
       try {
         // Get user email from Firestore (you'll need to implement this)
         // const userDoc = await getDoc(doc(db, 'users', userId))
         // const userEmail = userDoc.data()?.email
-        
+
         // For now, we'll skip email sending but the structure is ready
         // await sendNotificationEmail({
         //   username: userEmail,
@@ -333,7 +333,7 @@ export async function createNotification(userId: string, type: Notification['typ
         // Don't fail the notification creation if email fails
       }
     }
-    
+
     return newNotificationRef.key
   } catch (error) {
     console.error('Error creating notification:', error)
@@ -343,7 +343,7 @@ export async function createNotification(userId: string, type: Notification['typ
 
 export async function markNotificationAsRead(userId: string, notificationId: string) {
   const notificationRef = ref(realtimeDb, `notifications/${userId}/${notificationId}`)
-  
+
   try {
     await update(notificationRef, { read: true })
     return true

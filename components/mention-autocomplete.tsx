@@ -3,7 +3,7 @@
 import { Input } from "@/components/ui/input"
 import { forwardRef } from "react"
 
-interface MentionAutocompleteProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface MentionAutocompleteProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   value: string
   onChange: (value: string) => void
   placeholder?: string
