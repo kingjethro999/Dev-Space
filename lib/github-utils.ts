@@ -740,3 +740,74 @@ export function getLanguageColor(language: string) {
   return colors[language] || 'bg-gray-500'
 }
 
+/**
+ * Fetch contributors for a specific repository
+ */
+export async function getRepoContributors(
+  owner: string,
+  repo: string,
+  userId: string
+): Promise<{ login: string; avatar_url: string; html_url: string; contributions: number }[]> {
+  try {
+    const accessToken = await getGitHubAccessToken(userId)
+    if (!accessToken) {
+      throw new Error('GitHub not connected')
+    }
+
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contributors`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.github.v3+json',
+      },
+    })
+
+    if (!response.ok) {
+      if (response.status === 404) return [] // Repo might not exist or no access
+      throw new Error(`GitHub API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    // GitHub returns an array of contributors. We'll map the essential fields.
+    return data.map((contributor: any) => ({
+      login: contributor.login,
+      avatar_url: contributor.avatar_url,
+      html_url: contributor.html_url,
+      contributions: contributor.contributions
+    }))
+  } catch (error) {
+    console.error('Error fetching repo contributors:', error)
+    return []
+  }
+}
+
+/**
+ * Fetch the README file for a specific repository
+ */
+export async function getRepoReadme(owner: string, repo: string, userId: string): Promise<string | null> {
+  try {
+    const accessToken = await getGitHubAccessToken(userId)
+    if (!accessToken) {
+      throw new Error('GitHub not connected')
+    }
+
+    // We ask for raw media type to get the markdown directly
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/vnd.github.v3.raw',
+      },
+    })
+
+    if (!response.ok) {
+      if (response.status === 404) return null
+      throw new Error(`GitHub API error: ${response.status}`)
+    }
+
+    const readmeContent = await response.text()
+    return readmeContent
+  } catch (error) {
+    console.error('Error fetching repo README:', error)
+    return null
+  }
+}
+

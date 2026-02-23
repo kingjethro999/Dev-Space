@@ -616,9 +616,9 @@ export default function DiscoverPage() {
                       <h2 className="text-2xl font-bold text-foreground">Projects</h2>
                       <span className="text-sm text-muted-foreground">({projects.length})</span>
                     </div>
-                    <div className="space-y-4">
+                    <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6 md:space-y-0">
                       {projects.slice(0, 4).map((project) => (
-                        <Link key={project.id} href={`/projects/${project.id}`} className="block">
+                        <Link key={project.id} href={`/projects/${project.id}`} className="block break-inside-avoid mt-6 first:mt-0 md:mt-0">
                           <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
                             <div className="flex items-start justify-between mb-2">
                               <h3 className="text-lg font-bold text-foreground hover:text-primary">{project.title}</h3>

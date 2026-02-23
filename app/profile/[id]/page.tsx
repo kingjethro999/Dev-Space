@@ -4,11 +4,19 @@ import { useAuth } from "@/lib/auth-context"
 import { useRouter, useParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { db } from "@/lib/firebase"
+
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
+import 'github-markdown-css/github-markdown.css'
+
+import { Link2, Users, Code, Github, BookOpen, Share2, Copy, Edit, Trash2, LogOut } from "lucide-react"
+// import { BadgeCard, BadgePill } from "@/components/badge-card"
+import { getRepoReadme } from "@/lib/github-utils"
 import { doc, getDoc, collection, query, where, getDocs, addDoc, deleteDoc, orderBy, limit, onSnapshot } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Link from "next/link"
-import { LogOut, Link2, Users } from "lucide-react"
 import { UniversalNav } from "@/components/universal-nav"
 import { TechStackStrip } from "@/components/tech-stack-strip"
 import { TechBadgeList } from "@/components/tech-badge-list"
@@ -55,6 +63,7 @@ export default function ProfilePage() {
   const [badgeProgress, setBadgeProgress] = useState<BadgePathProgress[] | null>(null)
   const [activities, setActivities] = useState<any[]>([])
   const [profileUserData, setProfileUserData] = useState<any>(null)
+  const [profileReadme, setProfileReadme] = useState<string | null>(null)
 
   const isOwnProfile = user?.uid === profileId
   const { theme, setTheme } = useTheme()
@@ -106,7 +115,7 @@ export default function ProfilePage() {
         setAccomplishments(acc)
         setBadgeProgress(prog)
 
-        // Fetch profile user data for activities
+        // Fetch profile user data for activities AND GitHub Readme Name
         const profileDoc = await getDoc(doc(db, "users", profileId))
         if (profileDoc.exists()) {
           const data = profileDoc.data()
@@ -114,6 +123,15 @@ export default function ProfilePage() {
             username: data.username,
             avatar_url: data.avatar_url,
           })
+
+          if (data.githubAccessToken && data.githubUsername) {
+            try {
+              const readmeData = await getRepoReadme(data.githubUsername, data.githubUsername, profileId)
+              setProfileReadme(readmeData)
+            } catch (error) {
+              console.error("Failed to fetch profile README", error)
+            }
+          }
         }
       } catch (error) {
         console.error("Error fetching profile:", error)
@@ -346,9 +364,9 @@ export default function ProfilePage() {
             {projects.length > 0 && (
               <div className="bg-card border border-border rounded-lg p-4 md:p-6">
                 <h3 className="font-bold mb-4">Projects</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                <div className="columns-1 md:columns-2 gap-3 md:gap-4 space-y-3 md:space-y-0">
                   {projects.map((project) => (
-                    <Link key={project.id} href={`/projects/${project.id}`}>
+                    <Link key={project.id} href={`/projects/${project.id}`} className="block break-inside-avoid mt-3 first:mt-0 md:mt-0">
                       <div className="p-3 md:p-4 border border-border rounded-lg hover:border-primary transition-colors cursor-pointer">
                         <h4 className="font-semibold text-foreground mb-2 text-sm md:text-base">{project.title}</h4>
                         <p className="text-xs md:text-sm text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
@@ -356,6 +374,21 @@ export default function ProfilePage() {
                       </div>
                     </Link>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* GitHub Profile README */}
+            {profileReadme && (
+              <div className="bg-card border border-border rounded-lg p-4 md:p-6 overflow-hidden">
+                <div className="flex items-center gap-2 mb-4 border-b border-border pb-3">
+                  <Github className="w-5 h-5 text-foreground" />
+                  <h3 className="font-bold text-lg md:text-xl">{profileUserData?.username}/README.md</h3>
+                </div>
+                <div className="markdown-body !bg-transparent !text-foreground dark:!text-slate-300 text-sm md:text-base">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                    {profileReadme}
+                  </ReactMarkdown>
                 </div>
               </div>
             )}
