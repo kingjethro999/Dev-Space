@@ -47,7 +47,7 @@ export default function ProjectsPage() {
   const [shareText, setShareText] = useState("")
   const [deletingId, setDeletingId] = useState<string>("")
   const [page, setPage] = useState(1)
-  const pageSize = 9
+  const pageSize = 8
 
   const handleShare = (projectId: string) => {
     const url = typeof window !== 'undefined' ? `${window.location.origin}/projects/${projectId}` : `/projects/${projectId}`
@@ -156,46 +156,51 @@ export default function ProjectsPage() {
           </div>
         ) : (
           <>
-            <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6 md:space-y-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
               {projects.slice((page - 1) * pageSize, page * pageSize).map((project) => (
-                <div key={project.id} className="break-inside-avoid mt-6 first:mt-0 md:mt-0 bg-card border border-border rounded-lg p-0 hover:border-primary transition-colors cursor-pointer flex flex-col overflow-hidden group relative">
+                <div key={project.id} className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-0 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer flex flex-col overflow-hidden group relative h-full">
                   {/* Micro actions top right */}
-                  <div className="absolute top-3 right-3 z-10 flex gap-1 bg-card/90 rounded">
-                    <Button variant="ghost" size="icon-sm" onClick={() => handleShare(project.id)}><Share2 className="w-4 h-4" /><span className="sr-only">Share to chat</span></Button>
-                    <Button variant="ghost" size="icon-sm" onClick={() => handleCopyLink(project.id)}><Copy className="w-4 h-4" /><span className="sr-only">Copy link</span></Button>
+                  <div className="absolute top-3 right-3 z-10 flex gap-1 bg-slate-900/85 backdrop-blur-sm border border-white/10 rounded-lg p-0.5 shadow">
+                    <Button variant="ghost" size="icon-sm" onClick={() => handleShare(project.id)}><Share2 className="w-3.5 h-3.5" /><span className="sr-only">Share to chat</span></Button>
+                    <Button variant="ghost" size="icon-sm" onClick={() => handleCopyLink(project.id)}><Copy className="w-3.5 h-3.5" /><span className="sr-only">Copy link</span></Button>
                     {user?.uid === project.owner_id && (
                       <>
-                        <Button variant="ghost" size="icon-sm" onClick={() => router.push(`/projects/${project.id}/edit`)}><Edit className="w-4 h-4" /><span className="sr-only">Edit</span></Button>
-                        <Button variant="ghost" size="icon-sm" onClick={() => setDeletingId(project.id)}><Trash2 className="w-4 h-4 text-destructive" /><span className="sr-only">Delete</span></Button>
+                        <Button variant="ghost" size="icon-sm" onClick={() => router.push(`/projects/${project.id}/edit`)}><Edit className="w-3.5 h-3.5" /><span className="sr-only">Edit</span></Button>
+                        <Button variant="ghost" size="icon-sm" onClick={() => setDeletingId(project.id)}><Trash2 className="w-3.5 h-3.5 text-destructive" /><span className="sr-only">Delete</span></Button>
                       </>
                     )}
                   </div>
                   {/* Confirm delete popover */}
                   {deletingId === project.id && (
-                    <div className="absolute top-14 right-3 bg-background border rounded shadow p-3 z-30">
-                      <div>Delete this project?</div>
-                      <div className="flex gap-2 mt-2 justify-end">
-                        <Button variant="destructive" size="sm" onClick={() => handleDelete(project.id)}>Delete</Button>
-                        <Button variant="ghost" size="sm" onClick={() => setDeletingId("")}>Cancel</Button>
+                    <div className="absolute top-14 right-3 bg-slate-950 border border-white/10 rounded-xl shadow-lg p-3 z-30 text-xs">
+                      <div className="text-white font-medium mb-2">Delete this project?</div>
+                      <div className="flex gap-2 justify-end">
+                        <Button variant="destructive" size="sm" className="h-7 px-3 text-[10px]" onClick={() => handleDelete(project.id)}>Delete</Button>
+                        <Button variant="ghost" size="sm" className="h-7 px-3 text-[10px]" onClick={() => setDeletingId("")}>Cancel</Button>
                       </div>
                     </div>
                   )}
-                  <Link href={`/projects/${project.id}`}> {/* keep the rest of card clickable */}
-                    <div>
-                      <div className="w-full aspect-square bg-muted flex items-center justify-center">
-                        {project.project_image_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={project.project_image_url} alt={project.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <Briefcase className="w-10 h-10 text-muted-foreground" />
-                        )}
+                  <Link href={`/projects/${project.id}`} className="flex flex-col flex-1 h-full">
+                    <div className="flex flex-col flex-grow justify-between h-full">
+                      <div>
+                        <div className="w-full aspect-video bg-muted/40 flex items-center justify-center overflow-hidden border-b border-border/40">
+                          {project.project_image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={project.project_image_url} alt={project.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                          ) : (
+                            <Briefcase className="w-8 h-8 text-muted-foreground/60" />
+                          )}
+                        </div>
+                        <div className="p-5">
+                          <h3 className="text-base font-bold text-foreground mb-1 group-hover:text-primary transition-colors line-clamp-1">{project.title}</h3>
+                          <p className="text-xs text-muted-foreground mb-3 line-clamp-2 leading-relaxed">{project.description}</p>
+                          <TechBadgeList items={project.tech_stack || (project.repo_languages ? Object.keys(project.repo_languages) : [])} max={3} className="mb-3" />
+                        </div>
                       </div>
-                      <div className="p-6 flex flex-col flex-1">
-                        <h3 className="text-lg font-bold text-foreground mb-2">{project.title}</h3>
-                        <p className="text-sm text-muted-foreground mb-4 flex-grow">{project.description}</p>
-                        <TechBadgeList items={project.tech_stack || (project.repo_languages ? Object.keys(project.repo_languages) : [])} max={8} className="mb-4" />
+                      
+                      <div className="px-5 pb-5 pt-0">
                         <EmojiReactions parentId={project.id} collectionName="projects" />
-                        <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/40">
                           <div className="flex items-center gap-2">
                             <Avatar className="w-5 h-5">
                               <AvatarImage src={userData[project.owner_id]?.avatar_url || "/placeholder.svg"} />
@@ -206,12 +211,12 @@ export default function ProjectsPage() {
                                 e.stopPropagation()
                                 router.push(`/profile/${project.owner_id}`)
                               }}
-                              className="text-xs text-muted-foreground hover:text-primary cursor-pointer"
+                              className="text-[10px] text-muted-foreground hover:text-primary cursor-pointer font-medium"
                             >
                               {userData[project.owner_id]?.username || "Unknown"}
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-[10px] text-muted-foreground">
                             {project.created_at?.toDate?.()?.toLocaleDateString() || "Recently"}
                           </p>
                         </div>

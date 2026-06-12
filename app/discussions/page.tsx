@@ -200,8 +200,8 @@ export default function DiscussionsPage() {
         ) : (
           <div className="space-y-4">
             {discussions.slice((page-1)*pageSize, page*pageSize).map((discussion) => (
-              <div key={discussion.id} className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer relative group">
-                <div className="absolute top-3 right-3 z-10 flex gap-1 bg-card/90 rounded">
+              <div key={discussion.id} className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer relative group">
+                <div className="absolute top-3 right-3 z-10 flex gap-1 bg-card/90 rounded-lg">
                   <Button variant="ghost" size="icon-sm" onClick={(e) => { e.preventDefault(); shareDiscussion(discussion.id) }}><Share2 className="w-4 h-4" /></Button>
                   <Button variant="ghost" size="icon-sm" onClick={(e) => { e.preventDefault(); copyDiscussion(discussion.id) }}><Copy className="w-4 h-4" /></Button>
                   {user?.uid === discussion.creator_id && (
@@ -212,7 +212,7 @@ export default function DiscussionsPage() {
                   )}
                 </div>
                 {deletingId === discussion.id && (
-                  <div className="absolute top-14 right-3 bg-background border rounded shadow p-3 z-30">
+                  <div className="absolute top-14 right-3 bg-slate-950 border border-white/10 rounded-xl shadow-lg p-3 z-30 text-xs">
                     <div>Delete this discussion?</div>
                     <div className="flex gap-2 mt-2 justify-end">
                       <Button variant="destructive" size="sm" onClick={(e) => { e.preventDefault(); deleteDiscussion(discussion.id) }}>Delete</Button>

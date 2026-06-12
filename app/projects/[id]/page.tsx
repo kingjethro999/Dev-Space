@@ -19,6 +19,7 @@ import { UniversalNav } from "@/components/universal-nav"
 import { ShareToChatDialog } from "@/components/share-to-chat-dialog"
 import { EmojiReactions } from "@/components/emoji-reactions"
 import { TechBadgeList } from "@/components/tech-badge-list"
+import { ProjectAIChat } from "@/components/project-ai-chat"
 
 interface Project {
   id: string
@@ -269,7 +270,7 @@ export default function ProjectDetailPage() {
           Back to Projects
         </Link>
 
-        <div className="bg-card border border-border rounded-lg p-8 space-y-6">
+        <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-8 space-y-6 shadow-xl relative overflow-hidden">
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-4xl font-bold text-foreground mb-2">{project.title}</h1>
@@ -387,10 +388,19 @@ export default function ProjectDetailPage() {
             </div>
           )}
 
-          <div className="flex gap-4 flex-wrap">
+          <div className="flex gap-4 flex-wrap items-center">
+            <ProjectAIChat 
+              projectTitle={project.title}
+              githubUrl={project.github_url}
+              projectDescription={project.description}
+              readmeContent={readme}
+            />
             {project.github_url && (
               <a href={project.github_url} target="_blank" rel="noopener noreferrer">
-                <Button>View on GitHub</Button>
+                <Button variant="outline" className="bg-transparent gap-2">
+                  <Github className="w-4 h-4" />
+                  View on GitHub
+                </Button>
               </a>
             )}
             {project.live_url && (
@@ -439,7 +449,7 @@ export default function ProjectDetailPage() {
 
         {/* README Section */}
         {readme && (
-          <div className="mt-8 bg-card border border-border rounded-lg p-8">
+          <div className="mt-8 bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-8 shadow-xl">
             <div className="flex items-center gap-2 mb-6 border-b border-border pb-4">
               <BookOpen className="w-5 h-5 text-foreground" />
               <h2 className="text-2xl font-bold">README.md</h2>
@@ -453,7 +463,7 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
-        <div className="mt-8 bg-card border border-border rounded-lg p-8">
+        <div className="mt-8 bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-8 shadow-xl">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">Tasks</h2>
             {isOwner && (
