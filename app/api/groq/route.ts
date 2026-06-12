@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import Groq from 'groq-sdk';
 
 async function searchWeb(query: string): Promise<string> {
   const apiKey = process.env.TAVILY_API_KEY;
@@ -44,94 +45,81 @@ async function searchWeb(query: string): Promise<string> {
 export async function POST(request: NextRequest) {
   try {
     const { messages, webSearch, model = "llama-3.3-70b-versatile" } = await request.json();
-    const apiKey = process.env.NEXT_GROQ_API_KEY;
+
+    // Support both env var names for backward compat
+    const apiKey = process.env.GROQ_API_KEY || process.env.NEXT_GROQ_API_KEY;
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: "Groq API Key (NEXT_GROQ_API_KEY) is not set." },
+        { error: "Groq API Key (GROQ_API_KEY) is not set." },
         { status: 500 }
       );
     }
 
+    // Instantiate the Groq SDK – handles keep-alive, retries, and timeouts
+    const groq = new Groq({
+      apiKey,
+      timeout: 30000, // 30s timeout
+      maxRetries: 2,
+    });
+
     let searchContext = "";
     if (webSearch && messages && messages.length > 0) {
-      const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+      const lastUserMessage = [...messages].reverse().find((m: any) => m.role === 'user');
       if (lastUserMessage) {
-        console.log(`Searching the web for: "${lastUserMessage.content}"`);
-        searchContext = await searchWeb(lastUserMessage.content);
+        const queryText = typeof lastUserMessage.content === 'string'
+          ? lastUserMessage.content
+          : lastUserMessage.content?.map((c: any) => c.text || '').join(' ') || '';
+        console.log(`Searching the web for: "${queryText}"`);
+        searchContext = await searchWeb(queryText);
       }
     }
 
-    const finalMessages = [...messages];
+    const finalMessages: Groq.Chat.ChatCompletionMessageParam[] = [...messages];
     if (searchContext) {
-      // Append web search context as system prompt or system message at the end
       finalMessages.push({
         role: "system",
-        content: `Here is the real-time web search context retrieved for the user's query:\n\n${searchContext}\n\nIntegrate this information naturally, cite sources, and answer the user's question.`
+        content: `Here is the real-time web search context retrieved for the user's query:\n\n${searchContext}\n\nIntegrate this information naturally, cite sources, and answer the user's question.`,
       });
     }
 
-    let modelToUse = model;
-    const hasImage = messages && messages.some((m: any) => 
+    // Detect vision model requirement
+    const hasImage = messages && messages.some((m: any) =>
       Array.isArray(m.content) && m.content.some((c: any) => c.type === 'image_url')
     );
-    if (hasImage) {
-      modelToUse = "llama-3.2-11b-vision-preview";
-    }
+    const modelToUse = hasImage ? "llama-3.2-11b-vision-preview" : model;
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: modelToUse,
-        messages: finalMessages,
-        stream: true
-      })
+    const groqStream = await groq.chat.completions.create({
+      model: modelToUse,
+      messages: finalMessages,
+      stream: true,
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Groq API error:", errText);
-      return NextResponse.json(
-        { error: `Groq API error: ${errText}` },
-        { status: response.status }
-      );
-    }
-
-    // Stream the response using a ReadableStream
+    // Convert the Groq async iterable stream to a ReadableStream for Next.js Response
+    const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        const reader = response.body?.getReader();
-        if (!reader) {
-          controller.close();
-          return;
-        }
-
-        const decoder = new TextDecoder();
         try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = decoder.decode(value);
-            controller.enqueue(chunk);
+          for await (const chunk of groqStream) {
+            const data = `data: ${JSON.stringify(chunk)}\n\n`;
+            controller.enqueue(encoder.encode(data));
           }
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         } catch (e) {
+          console.error("Stream error:", e);
           controller.error(e);
         } finally {
           controller.close();
         }
-      }
+      },
     });
 
     return new Response(stream, {
       headers: {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
-        "Connection": "keep-alive"
-      }
+        "Connection": "keep-alive",
+      },
     });
   } catch (error) {
     console.error("Error in Groq API route:", error);
