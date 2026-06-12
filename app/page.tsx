@@ -4,25 +4,17 @@ import { useAuth } from "@/lib/auth-context"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import Link from "next/link"
 import Image from "next/image"
 import {
   Code2, Users, GitBranch, MessageSquare, ArrowRight, Sun, Moon,
   Star, Zap, Shield, Globe, Sparkles, Search, Menu, X,
-  Github, ExternalLink, Play, ChevronRight, Bot, Send,
-  Terminal, Database, Cloud, Lock, CheckCircle, Rocket, Settings,
-  Building2, Network, Code, Laptop, Monitor, Smartphone,
-  Briefcase, Target, Award, TrendingUp, Users2, GitCommit,
-  BookOpen, Lightbulb, Cpu, HardDrive, Wifi, Globe2, HelpCircle
+  Github, Terminal, CheckCircle, Rocket,
+  BookOpen, Lightbulb, Globe2, Users2, GitCommit, TrendingUp, Bot
 } from "lucide-react"
 import { useTheme } from "next-themes"
-import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
+import { motion, AnimatePresence } from "framer-motion"
 import { useAnalytics } from "@/hooks/use-analytics"
-import { GLOW_AI_SYSTEM_PROMPT } from "@/lib/glow-ai-config"
 
 function HomeContent() {
   const { user, loading } = useAuth()
@@ -30,311 +22,101 @@ function HomeContent() {
   const searchParams = useSearchParams()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
-  const [aiChatOpen, setAiChatOpen] = useState(false)
-  const [chatMessage, setChatMessage] = useState("")
-  const [chatHistory, setChatHistory] = useState<Array<{ role: string, content: string }>>([])
-  const [isLoading, setIsLoading] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const { scrollY } = useScroll()
-  const y = useTransform(scrollY, [0, 300], [0, -50])
-
-  // Initialize analytics if user has consented
   useAnalytics()
 
-  useEffect(() => {
-    setMounted(true)
-    // Check for chat parameter
-    if (searchParams.get('chat') === 'open') {
-      setAiChatOpen(true)
-    }
-  }, [searchParams])
+  useEffect(() => { setMounted(true) }, [searchParams])
+  useEffect(() => { if (!loading && user) router.push("/discover") }, [user, loading, router])
 
-  useEffect(() => {
-    if (!loading && user) {
-      router.push("/discover")
-    }
-  }, [user, loading, router])
-
-  const handleAiChat = async (message: string) => {
-    if (!message.trim()) return
-
-    setIsLoading(true)
-    const updatedHistory = [...chatHistory, { role: 'user', content: message }]
-    setChatHistory(updatedHistory)
-    setChatMessage("")
-
-    // Add empty placeholder assistant message that we'll stream into
-    setChatHistory([...updatedHistory, { role: 'assistant', content: '' }])
-
-    try {
-      const response = await fetch("/api/groq", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          systemPrompt: GLOW_AI_SYSTEM_PROMPT,
-          messages: [
-            ...chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
-            { role: "user", content: message }
-          ],
-          webSearch: false
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      if (!reader) {
-        throw new Error('No body reader available');
-      }
-
-      let accumulatedContent = '';
-      let isDone = false;
-
-      while (!isDone) {
-        const { value, done } = await reader.read();
-        isDone = done;
-        if (value) {
-          const chunk = decoder.decode(value, { stream: true });
-          
-          // Parse Server-Sent Events (SSE) from the response
-          const lines = chunk.split('\n');
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const dataStr = line.slice(6).trim();
-              if (dataStr === '[DONE]') {
-                isDone = true;
-                break;
-              }
-              try {
-                const data = JSON.parse(dataStr);
-                if (data.text) {
-                  accumulatedContent += data.text;
-                  setChatHistory(prev => {
-                    const next = [...prev];
-                    if (next.length > 0 && next[next.length - 1].role === 'assistant') {
-                      next[next.length - 1] = {
-                        ...next[next.length - 1],
-                        content: accumulatedContent
-                      };
-                    }
-                    return next;
-                  });
-                }
-              } catch (e) {
-                // Ignore parsing errors for partial or empty lines
-              }
-            }
-          }
-        }
-      }
-
-      setChatHistory([
-        ...updatedHistory,
-        { role: 'assistant', content: accumulatedContent }
-      ])
-    } catch (error) {
-      console.error('AI Chat error:', error)
-      let errorMessage = 'Sorry, I encountered an error. Please try again.'
-
-      if (error instanceof Error) {
-        if (error.message.includes('Rate limit') || error.message.includes('429')) {
-          errorMessage = 'Rate limit exceeded. Please wait a moment before trying again.'
-        } else {
-          errorMessage = `Sorry, I encountered an error: ${error.message}. Please try again later.`
-        }
-      }
-
-      setChatHistory(prev => {
-        const next = [...prev];
-        if (next.length > 0 && next[next.length - 1].role === 'assistant') {
-          next[next.length - 1] = {
-            ...next[next.length - 1],
-            content: errorMessage
-          };
-        }
-        return next;
-      });
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  if (!mounted) {
-    return null
-  }
+  if (!mounted) return null
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-950">
-        <div className="flex flex-col items-center justify-center text-center space-y-6">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 0.5 }}
-            className="relative flex items-center justify-center"
-          >
-            <div className="w-16 h-16 border-4 border-blue-200 rounded-full animate-spin border-t-blue-600"></div>
-            <div className="absolute inset-0 w-16 h-16 border-4 border-transparent rounded-full animate-ping border-t-blue-600"></div>
-          </motion.div>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="text-slate-300 text-lg font-medium"
-          >
-            Initializing Dev Space...
-          </motion.p>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative w-16 h-16">
+            <div className="w-16 h-16 rounded-full border-2 border-primary/20 animate-spin border-t-primary" />
+            <div className="absolute inset-0 rounded-full border-2 border-transparent animate-ping border-t-primary/30" />
+          </div>
+          <p className="text-muted-foreground text-sm font-medium tracking-wide">Initializing DevSpace…</p>
         </div>
       </div>
     )
   }
 
-  if (user) {
-    return null
-  }
+  if (user) return null
+
+  const navLinks = [
+    { href: "/docs", label: "Docs" },
+    { href: "/auth/signup?redirect=/discussions", label: "Community" },
+    { href: "/contact", label: "Contact" },
+  ]
+
+  const features = [
+    { icon: Code2, title: "Project Launchpad", desc: "Share projects, track progress, and showcase your story from idea to launch.", color: "text-indigo-400", bg: "bg-indigo-500/10", border: "border-indigo-500/20" },
+    { icon: Users2, title: "Collaboration Hubs", desc: "Create or join teams. Exchange feedback and build bigger things faster.", color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20" },
+    { icon: Rocket, title: "Living Portfolio", desc: "Turn your DevSpace profile into a living portfolio — achievements, repos, journey.", color: "text-cyan-400", bg: "bg-cyan-500/10", border: "border-cyan-500/20" },
+    { icon: BookOpen, title: "Learn by Building", desc: "Explore open projects, clone ideas, learn new stacks, contribute to real work.", color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+    { icon: Bot, title: "Glow AI Assistant", desc: "AI-powered code analysis, indexing, and instant answers for any project.", color: "text-pink-400", bg: "bg-pink-500/10", border: "border-pink-500/20" },
+    { icon: Globe2, title: "Global Community", desc: "Connect across schools, regions, and countries. Talent grows through visibility.", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
+  ]
+
+  const stats = [
+    { icon: GitCommit, value: "500+", label: "Active Developers", color: "text-indigo-400", bg: "bg-indigo-500/10" },
+    { icon: Code2, value: "200+", label: "Projects Built", color: "text-emerald-400", bg: "bg-emerald-500/10" },
+    { icon: MessageSquare, value: "1.2k+", label: "Collaborations", color: "text-violet-400", bg: "bg-violet-500/10" },
+    { icon: TrendingUp, value: "95%", label: "Success Rate", color: "text-amber-400", bg: "bg-amber-500/10" },
+  ]
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-xl border-b border-border">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+
+      {/* ── NAV ── */}
+      <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-              className="flex items-center space-x-3"
-            >
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-                <Image
-                  src="/dev-space-icon-transparent.png"
-                  alt="DevSpace Platform"
-                  width={600}
-                  height={400}
-                  className="rounded-2xl shadow-2xl"
-                  priority
-                />
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <Image src="/dev-space-icon-transparent.png" alt="DevSpace" width={24} height={24} className="rounded-lg" priority />
               </div>
-              <span className="text-xl font-bold text-foreground">
-                DevSpace
-              </span>
-            </motion.div>
+              <span className="text-lg font-bold tracking-tight">DevSpace</span>
+            </Link>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
-              <div className="flex items-center space-x-6">
-                <Link href="/docs" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Documentation
-                </Link>
-                <Link href="/auth/signup?redirect=/discussions" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Community
-                </Link>
-                <Link href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
-                  Contact
-                </Link>
-              </div>
-
-              <div className="flex items-center space-x-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className="w-9 h-9 p-0"
-                >
-                  <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                  <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                </Button>
-
-                <Link href="/auth/login">
-                  <Button variant="ghost" size="sm">
-                    Sign In
-                  </Button>
-                </Link>
-                <Link href="/auth/signup">
-                  <Button size="sm">
-                    Get Started
-                  </Button>
-                </Link>
-              </div>
+            <div className="hidden md:flex items-center gap-8">
+              {navLinks.map(l => (
+                <Link key={l.href} href={l.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">{l.label}</Link>
+              ))}
             </div>
 
-            {/* Mobile Menu Button */}
-            <div className="md:hidden">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              >
-                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            <div className="hidden md:flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="w-9 h-9">
+                <Sun className="h-4 w-4 rotate-0 scale-100 dark:-rotate-90 dark:scale-0 transition-all" />
+                <Moon className="absolute h-4 w-4 rotate-90 scale-0 dark:rotate-0 dark:scale-100 transition-all" />
               </Button>
+              <Link href="/auth/login"><Button variant="ghost" size="sm">Sign in</Button></Link>
+              <Link href="/auth/signup"><Button size="sm" className="btn-glow bg-primary hover:bg-primary/90">Get Started <ArrowRight className="ml-1.5 h-3.5 w-3.5" /></Button></Link>
             </div>
+
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
           </div>
 
-          {/* Mobile Menu Dropdown */}
           <AnimatePresence>
             {mobileMenuOpen && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                className="md:hidden border-t border-border overflow-hidden"
+                className="md:hidden border-t border-border/50 py-4 space-y-3"
               >
-                <div className="py-4 space-y-4">
-                  <div className="flex flex-col space-y-3">
-                    <Link
-                      href="/docs"
-                      className="text-muted-foreground hover:text-foreground transition-colors px-2 py-2"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Documentation
-                    </Link>
-                    <Link
-                      href="/auth/signup?redirect=/discussions"
-                      className="text-muted-foreground hover:text-foreground transition-colors px-2 py-2"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Community
-                    </Link>
-                    <Link
-                      href="/contact"
-                      className="text-muted-foreground hover:text-foreground transition-colors px-2 py-2"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Contact
-                    </Link>
-                  </div>
-
-                  <div className="border-t border-border pt-4 flex flex-col space-y-3">
-                    <div className="flex items-center justify-between px-2">
-                      <span className="text-sm text-muted-foreground">Theme</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                        className="w-9 h-9 p-0"
-                      >
-                        <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                        <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                      </Button>
-                    </div>
-
-                    <Link href="/auth/login" onClick={() => setMobileMenuOpen(false)}>
-                      <Button variant="ghost" className="w-full justify-start">
-                        Sign In
-                      </Button>
-                    </Link>
-                    <Link href="/auth/signup" onClick={() => setMobileMenuOpen(false)}>
-                      <Button className="w-full">
-                        Get Started
-                      </Button>
-                    </Link>
-                  </div>
+                {navLinks.map(l => (
+                  <Link key={l.href} href={l.href} onClick={() => setMobileMenuOpen(false)}
+                    className="block px-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">{l.label}</Link>
+                ))}
+                <div className="pt-2 border-t border-border/50 flex flex-col gap-2">
+                  <Link href="/auth/login" onClick={() => setMobileMenuOpen(false)}><Button variant="ghost" className="w-full justify-start">Sign in</Button></Link>
+                  <Link href="/auth/signup" onClick={() => setMobileMenuOpen(false)}><Button className="w-full">Get Started</Button></Link>
                 </div>
               </motion.div>
             )}
@@ -342,1002 +124,243 @@ function HomeContent() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative pt-32 md:pt-40 lg:pt-48 pb-20 md:pb-28 overflow-hidden bg-gradient-to-br from-background via-background to-muted/30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            {/* Left Column - Content */}
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              className="space-y-8 md:space-y-10"
-            >
-              <div className="space-y-6 md:space-y-8">
-                <motion.h1
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.2 }}
-                  className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-foreground"
-                >
-                  Where Developers{" "}
-                  <span className="text-primary">
-                    Connect
-                  </span>,{" "}
-                  <span className="text-primary">
-                    Collaborate
-                  </span>, and{" "}
-                  <span className="text-primary">
-                    Grow
-                  </span>
-                </motion.h1>
+      {/* ── HERO ── */}
+      <section className="relative pt-32 pb-24 md:pt-44 md:pb-32 overflow-hidden hero-mesh grid-bg">
+        {/* Floating orbs */}
+        <div className="absolute top-20 left-1/4 w-72 h-72 bg-primary/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-10 right-1/4 w-96 h-96 bg-violet-500/6 rounded-full blur-3xl pointer-events-none" />
 
-                <motion.p
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.4 }}
-                  className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-xl leading-relaxed"
-                >
-                  DevSpace is more than a platform — it's a movement. Built to bridge the gap between
-                  student developers and the wider tech world, we help you share your projects, learn from others,
-                  and build together — no matter your level, age, or background.
-                </motion.p>
-              </div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Badge */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+            className="flex justify-center mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-sm text-primary font-medium">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Built for the next generation of developers</span>
+            </div>
+          </motion.div>
 
-              {/* Feature Highlights */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.6 }}
-                className="grid grid-cols-2 gap-3 md:gap-4"
-              >
-                {[
-                  { icon: MessageSquare, text: "Connect & Collaborate", color: "text-blue-500" },
-                  { icon: Code2, text: "Share Projects", color: "text-green-500" },
-                  { icon: BookOpen, text: "Learn & Grow", color: "text-purple-500" },
-                  { icon: Globe2, text: "Showcase Journey", color: "text-orange-500" }
-                ].map((feature, index) => (
-                  <div
-                    key={feature.text}
-                    className="flex items-center space-x-2 md:space-x-3 p-3 md:p-4 bg-card/50 backdrop-blur-sm rounded-xl border border-border/50 hover:border-primary/50 hover:bg-card transition-all duration-300"
-                  >
-                    <feature.icon className={`w-4 h-4 md:w-5 md:h-5 ${feature.color} shrink-0`} />
-                    <span className="text-xs md:text-sm font-medium text-foreground">{feature.text}</span>
-                  </div>
-                ))}
-              </motion.div>
-
-              {/* CTA Buttons */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.8 }}
-                className="flex flex-col sm:flex-row gap-3 md:gap-4 pt-2"
-              >
-                <Link href="/auth/signup">
-                  <Button size="lg" className="w-full sm:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg">
-                    Join the Space
-                    <ArrowRight className="ml-2 h-4 w-4 md:h-5 md:w-5" />
-                  </Button>
-                </Link>
-                <Link href="/projects">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto px-6 md:px-8 py-3 md:py-4 text-base md:text-lg">
-                    Explore Projects
-                  </Button>
-                </Link>
-              </motion.div>
-            </motion.div>
-
-            {/* Right Column - DevSpace Visual */}
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className=""
-            >
-              <div className="justify-center items-center">
-                <Image
-                  src="/illustrations/Innovation-amico(1).png"
-                  alt="DevSpace Platform"
-                  width={600}
-                  height={400}
-                  className="rounded-2xl shadow-2xl"
-                  priority
-                />
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Problem & Solution Section */}
-      <section className="py-20 bg-muted/30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-left mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
-              A Place for Every Developer —{" "}
-              <span className="text-primary">
-                From Classroom to Cosmos
-              </span>
-            </h2>
-            <p className="text-xl text-muted-foreground max-w-6xl">
-              DevSpace started as an idea on campus — a way to connect talented but isolated developers.
-              We saw brilliant coders who were too shy or too uncertain to collaborate because of age gaps,
-              level differences, or simple distance.
+          {/* Headline */}
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}
+            className="text-center max-w-4xl mx-auto mb-8">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.1] mb-6">
+              Where Developers{" "}
+              <span className="gradient-text">Connect, Build,</span>
+              <br />and{" "}
+              <span className="gradient-text">Grow Together</span>
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+              DevSpace bridges the gap between student developers and the wider tech world.
+              Share projects, collaborate, and grow — regardless of level, age, or background.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            {/* The Problem Section */}
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="space-y-8"
-            >
-              <div className="bg-card rounded-2xl p-8 border border-border">
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-12 h-12 bg-destructive/10 rounded-lg flex items-center justify-center">
-                    <X className="w-6 h-6 text-destructive" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-destructive">THE PROBLEM</h3>
-                    <h4 className="text-xl font-semibold text-foreground">
-                      Developers Are Everywhere — But Connection Is Missing
-                    </h4>
-                  </div>
-                </div>
-                <p className="text-muted-foreground text-lg mb-8">
-                  On many campuses, great developers work in silence. They build projects alone,
-                  rarely meeting others who could teach, learn, or build with them. Sometimes it's
-                  because of level differences. Sometimes it's age. Sometimes it's just not knowing where to start.
-                </p>
-
-                <div className="space-y-4">
-                  {[
-                    { icon: Users, title: "Working in Silence", description: "Brilliant coders building alone", color: "text-red-500" },
-                    { icon: BookOpen, title: "Level Barriers", description: "Age and experience gaps", color: "text-orange-500" },
-                    { icon: HelpCircle, title: "No Starting Point", description: "Not knowing where to begin", color: "text-yellow-500" }
-                  ].map((feature, index) => (
-                    <motion.div
-                      key={feature.title}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.6, delay: 0.4 + index * 0.1 }}
-                      className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer group"
-                    >
-                      <div className="w-10 h-10 bg-destructive/10 rounded-lg flex items-center justify-center group-hover:bg-destructive/20 transition-colors">
-                        <feature.icon className={`w-5 h-5 ${feature.color}`} />
-                      </div>
-                      <div className="flex-1">
-                        <h5 className="font-semibold text-foreground">{feature.title}</h5>
-                        <p className="text-muted-foreground text-sm">{feature.description}</p>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-
-            {/* The Solution Section */}
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className="space-y-8"
-            >
-              <div className="bg-card rounded-2xl p-8 border border-border">
-                <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <CheckCircle className="w-6 h-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-primary">THE SOLUTION</h3>
-                    <h4 className="text-xl font-semibold text-foreground">
-                      DevSpace Changes That — Building Together Is Better
-                    </h4>
-                  </div>
-                </div>
-                <p className="text-muted-foreground text-lg mb-8">
-                  We make it easy for any developer — young or experienced — to find others,
-                  form teams, and share their progress publicly. Collaboration should never depend
-                  on class level. It should depend on curiosity, effort, and passion for code.
-                </p>
-
-                <div className="space-y-4">
-                  {[
-                    { icon: Users2, title: "Easy Connections", description: "Find developers who share your passion", color: "text-green-500" },
-                    { icon: Rocket, title: "Project Showcase", description: "Share your journey from idea to launch", color: "text-blue-500" },
-                    { icon: Lightbulb, title: "Passion-Based", description: "Collaboration based on curiosity, not level", color: "text-purple-500" }
-                  ].map((feature, index) => (
-                    <motion.div
-                      key={feature.title}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.6, delay: 0.6 + index * 0.1 }}
-                      className="flex items-center space-x-4 p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors cursor-pointer group"
-                    >
-                      <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                        <feature.icon className={`w-5 h-5 ${feature.color}`} />
-                      </div>
-                      <div className="flex-1">
-                        <h5 className="font-semibold text-foreground">{feature.title}</h5>
-                        <p className="text-muted-foreground text-sm">{feature.description}</p>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* DevSpace Features Section */}
-      <section className="py-20 bg-background">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-left mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
-              Your Developer Journey,{" "}
-              <span className="text-primary">
-                All in One Space
-              </span>
-            </h2>
-            <p className="text-xl text-muted-foreground max-w-6xl">
-              DevSpace is a community of developers helping each other become better.
-              We don't just share finished products — we share journeys.
-            </p>
+          {/* CTA */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.25 }}
+            className="flex flex-col sm:flex-row gap-3 justify-center mb-16">
+            <Link href="/auth/signup">
+              <Button size="lg" className="btn-glow bg-primary hover:bg-primary/90 text-primary-foreground px-8 h-12 text-base font-semibold rounded-xl">
+                Join DevSpace <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/discover">
+              <Button size="lg" variant="outline" className="px-8 h-12 text-base font-semibold rounded-xl border-border/60 hover:border-primary/40 hover:bg-primary/5">
+                Explore Projects
+              </Button>
+            </Link>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Feature pills */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.4 }}
+            className="flex flex-wrap justify-center gap-3">
             {[
-              {
-                icon: Code2,
-                title: "Project Launchpad",
-                description: "Share your projects, track your progress, and tell your story. Whether it's a hackathon idea or a major app, DevSpace gives it visibility and life.",
-                color: "text-blue-500",
-                bgColor: "bg-blue-500/10"
-              },
-              {
-                icon: Users2,
-                title: "Collaboration Hubs",
-                description: "Create or join teams. Work together, exchange feedback, and build bigger things faster.",
-                color: "text-green-500",
-                bgColor: "bg-green-500/10"
-              },
-              {
-                icon: Rocket,
-                title: "Showcase & Portfolio",
-                description: "Turn your DevSpace profile into a living portfolio — your achievements, your repositories, your journey, all in one place.",
-                color: "text-purple-500",
-                bgColor: "bg-purple-500/10"
-              },
-              {
-                icon: BookOpen,
-                title: "Learning Through Building",
-                description: "Get inspired by what others are building. Explore open projects, clone ideas, learn new stacks, and contribute to real work.",
-                color: "text-orange-500",
-                bgColor: "bg-orange-500/10"
-              },
-              {
-                icon: Shield,
-                title: "Powered by GitHub & Firebase",
-                description: "Authenticate securely, manage repos effortlessly, and collaborate in real-time with industry-standard tools.",
-                color: "text-indigo-500",
-                bgColor: "bg-indigo-500/10"
-              },
-              {
-                icon: Globe2,
-                title: "Global Community",
-                description: "Connect with developers across schools, regions, and countries. A shared environment where talent grows through visibility, not seniority.",
-                color: "text-teal-500",
-                bgColor: "bg-teal-500/10"
-              }
-            ].map((feature, index) => (
-              <motion.div
-                key={feature.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                className="bg-card rounded-xl p-6 border border-border hover:border-primary/50 transition-all duration-300 group cursor-pointer"
-              >
-                <div className={`w-12 h-12 ${feature.bgColor} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                  <feature.icon className={`w-6 h-6 ${feature.color}`} />
+              { icon: MessageSquare, text: "Community Discussions" },
+              { icon: Code2, text: "Project Showcase" },
+              { icon: Bot, text: "Glow AI Assistant" },
+              { icon: Globe2, text: "Global Network" },
+            ].map(item => (
+              <div key={item.text} className="flex items-center gap-2 px-4 py-2 glass-card text-sm text-muted-foreground font-medium">
+                <item.icon className="w-4 h-4 text-primary" />
+                {item.text}
+              </div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── STATS ── */}
+      <section className="py-16 border-y border-border/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            {stats.map((s, i) => (
+              <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
+                className="premium-card p-6 text-center group">
+                <div className={`w-10 h-10 ${s.bg} rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform`}>
+                  <s.icon className={`w-5 h-5 ${s.color}`} />
                 </div>
-                <h3 className="text-xl font-bold text-foreground mb-3">{feature.title}</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed">{feature.description}</p>
+                <div className="text-2xl md:text-3xl font-extrabold tracking-tight mb-1">{s.value}</div>
+                <div className="text-xs md:text-sm text-muted-foreground">{s.label}</div>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Developer Activity Section */}
-      <section className="py-20 bg-muted/30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              className="space-y-8"
-            >
-              <div>
-                <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
-                  Real Developer{" "}
-                  <span className="text-primary">Activity</span>
-                </h2>
-                <p className="text-xl text-muted-foreground mb-8">
-                  See how developers are actively collaborating, building projects, and growing together on DevSpace.
-                  Join a community that's already making a difference.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-card rounded-lg p-6 border border-border">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <GitCommit className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-foreground">500+</div>
-                      <div className="text-sm text-muted-foreground">Active Developers</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-card rounded-lg p-6 border border-border">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
-                      <Code2 className="w-5 h-5 text-green-500" />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-foreground">200+</div>
-                      <div className="text-sm text-muted-foreground">Projects Built</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-card rounded-lg p-6 border border-border">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                      <MessageSquare className="w-5 h-5 text-purple-500" />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-foreground">1.2k+</div>
-                      <div className="text-sm text-muted-foreground">Collaborations</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-card rounded-lg p-6 border border-border">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-orange-500" />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-foreground">95%</div>
-                      <div className="text-sm text-muted-foreground">Success Rate</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="relative"
-            >
-              <Image
-                src="/illustrations/Developer-activity.png"
-                alt="Developer Activity on DevSpace"
-                width={600}
-                height={400}
-                className="rounded-2xl shadow-2xl"
-              />
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Blog & Learning Section */}
-      <section className="py-20 bg-muted/30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-left mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
-              Learn, Share, and{" "}
-              <span className="text-primary">Grow Together</span>
+      {/* ── FEATURES ── */}
+      <section className="py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border/60 bg-muted/50 text-xs text-muted-foreground font-medium mb-4">
+              <Zap className="w-3 h-3" /> Everything you need
+            </div>
+            <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4">
+              Your Developer Journey,{" "}
+              <span className="gradient-text">All in One Space</span>
             </h2>
-            <p className="text-xl text-muted-foreground max-w-3xl">
-              Discover insights, tutorials, and stories from the DevSpace community.
-              From beginner guides to advanced techniques, learn from developers who've been there.
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              We don't just share finished products — we share journeys.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              className="space-y-8"
-            >
-              <div className="bg-card border border-border rounded-2xl p-8">
-                <h3 className="text-2xl font-bold text-foreground mb-4">Featured Blog Post</h3>
-                <p className="text-muted-foreground mb-6">
-                  "From First Commit to First Job: A Developer's Journey Through DevSpace"
-                </p>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Read how Sarah, a computer science student, used DevSpace to build her portfolio,
-                  connect with mentors, and land her dream job at a tech startup.
-                </p>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">By Sarah Chen • 2 days ago</span>
-                  <Button variant="outline" size="sm">
-                    Read More
-                  </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {features.map((f, i) => (
+              <motion.div key={f.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
+                className={`premium-card p-6 border ${f.border} group`}>
+                <div className={`w-12 h-12 ${f.bg} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                  <f.icon className={`w-6 h-6 ${f.color}`} />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <h4 className="font-semibold text-foreground mb-2">Tutorials</h4>
-                  <p className="text-sm text-muted-foreground">Step-by-step coding guides</p>
-                </div>
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <h4 className="font-semibold text-foreground mb-2">Showcases</h4>
-                  <p className="text-sm text-muted-foreground">Amazing project breakdowns</p>
-                </div>
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <h4 className="font-semibold text-foreground mb-2">Career Tips</h4>
-                  <p className="text-sm text-muted-foreground">Industry insights & advice</p>
-                </div>
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <h4 className="font-semibold text-foreground mb-2">Community</h4>
-                  <p className="text-sm text-muted-foreground">Stories from developers</p>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="relative"
-            >
-              <Image
-                src="/illustrations/Blog-post.png"
-                alt="Blog and Learning"
-                width={600}
-                height={400}
-                className="rounded-2xl shadow-2xl"
-              />
-            </motion.div>
+                <h3 className="text-lg font-bold mb-2">{f.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Creator Section */}
-      <section className="py-20 bg-background">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-left"
-          >
-            <div className="max-w-6xl mx-auto">
-              <div className="bg-card border border-border rounded-2xl p-12">
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ duration: 0.6, delay: 0.2 }}
-                  className="w-20 h-20 bg-primary rounded-full flex items-center justify-center mb-6"
-                >
-                  <Code2 className="w-10 h-10 text-primary-foreground" />
-                </motion.div>
+      {/* ── PROBLEM / SOLUTION ── */}
+      <section className="py-24 bg-muted/20 border-y border-border/40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-14">
+            <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4">
+              A Place for Every Developer —{" "}
+              <span className="gradient-text">From Classroom to Cosmos</span>
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-3xl">
+              DevSpace started as a campus idea to connect brilliant but isolated developers. We saw coders working in silence because of age gaps, level differences, or simply not knowing where to start.
+            </p>
+          </motion.div>
 
-                <h3 className="text-3xl font-bold text-foreground mb-4">Built by King Jethro</h3>
-                <p className="text-xl text-muted-foreground mb-8 max-w-6xl">
-                  A passionate developer who believes in the power of community and collaboration.
-                  Building tools that bring developers together and make the world a better place through code.
-                </p>
-
-                <div className="flex justify-center gap-4">
-                  <a
-                    href="https://github.com/kingjethro999"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
-                  >
-                    <Github className="w-5 h-5 mr-2" />
-                    GitHub
-                  </a>
-                  <span className="inline-flex items-center px-6 py-3 bg-muted text-muted-foreground rounded-lg">
-                    @kingjethro999
-                  </span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Problem */}
+            <div className="premium-card p-8 border border-red-500/20">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-red-500/10 rounded-xl flex items-center justify-center">
+                  <X className="w-5 h-5 text-red-400" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-red-400 uppercase tracking-widest">The Problem</div>
+                  <h3 className="font-bold text-lg">Developers are everywhere — but connection is missing</h3>
                 </div>
               </div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Community & Collaboration Section */}
-      <section className="py-20 bg-background">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              className="space-y-8"
-            >
-              <div>
-                <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
-                  Building Together Is{" "}
-                  <span className="text-primary">Better</span>
-                </h2>
-                <p className="text-xl text-muted-foreground mb-8">
-                  DevSpace is a community of developers helping each other become better.
-                  We don't just share finished products — we share <strong>journeys.</strong>
-                </p>
-                <p className="text-lg text-muted-foreground mb-8">
-                  From your first commit to your product launch, DevSpace lets you tell your story:
-                  what you're building, what you're learning, and who's building with you.
-                </p>
-                <p className="text-lg text-muted-foreground mb-8">
-                  It's a place to find collaborators, mentors, and teammates who share your drive to create.
-                  Because code isn't just about syntax — it's about the people who bring it to life.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3">
                 {[
-                  { icon: Globe, text: "Project Rooms", description: "Collaborate live on shared codebases", color: "text-blue-500" },
-                  { icon: Rocket, text: "Launch Stories", description: "Showcase your journey from idea to reality", color: "text-purple-500" },
-                  { icon: Users2, text: "Connections", description: "Follow and interact with other devs", color: "text-green-500" },
-                  { icon: BookOpen, text: "Open Learning", description: "No barriers, no intimidation — just shared knowledge", color: "text-orange-500" }
-                ].map((feature, index) => (
-                  <div
-                    key={feature.text}
-                    className="flex items-start space-x-3 p-4 bg-card rounded-lg border border-border hover:border-primary/50 transition-colors"
-                  >
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <feature.icon className={`w-5 h-5 ${feature.color}`} />
+                  { icon: Users, text: "Working in Silence", desc: "Brilliant coders building alone" },
+                  { icon: BookOpen, text: "Level Barriers", desc: "Age and experience gaps blocking collaboration" },
+                  { icon: Globe, text: "No Starting Point", desc: "Not knowing where to begin connecting" },
+                ].map(item => (
+                  <div key={item.text} className="flex items-center gap-3 p-3 rounded-xl bg-red-500/5 border border-red-500/10">
+                    <div className="w-8 h-8 bg-red-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <item.icon className="w-4 h-4 text-red-400" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-foreground mb-1">{feature.text}</h4>
-                      <p className="text-sm text-muted-foreground">{feature.description}</p>
+                      <div className="text-sm font-semibold">{item.text}</div>
+                      <div className="text-xs text-muted-foreground">{item.desc}</div>
                     </div>
                   </div>
                 ))}
               </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="relative"
-            >
-              <Image
-                src="/illustrations/Live_collaboration.png"
-                alt="Community Collaboration"
-                width={600}
-                height={400}
-                className="rounded-2xl shadow-2xl"
-              />
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Beyond the School - Vision Section */}
-      <section className="py-20 bg-muted/30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-left mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
-              Born on Campus.{" "}
-              <span className="text-primary">Built for Every Developer.</span>
-            </h2>
-            <p className="text-xl text-muted-foreground max-w-4xl mb-8">
-              DevSpace began as a university initiative — but we're not stopping there.
-              The mission is bigger: to connect developers across schools, regions, and countries.
-              A shared environment where talent grows through visibility, not seniority.
-            </p>
-            <p className="text-lg text-muted-foreground max-w-3xl mb-8">
-              Every developer deserves a platform to showcase what they can do.
-              DevSpace is that platform — open, inclusive, and built for the next generation of innovators.
-            </p>
-            <div className="bg-card border border-border rounded-2xl p-8 max-w-2xl">
-              <p className="text-xl font-semibold text-foreground italic">
-                "Because no idea should stay hidden. No developer should build alone."
-              </p>
             </div>
-          </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-left"
-            >
-              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                <Globe2 className="w-10 h-10 text-primary" />
+            {/* Solution */}
+            <div className="premium-card p-8 border border-emerald-500/20">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center">
+                  <CheckCircle className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-emerald-400 uppercase tracking-widest">The Solution</div>
+                  <h3 className="font-bold text-lg">DevSpace — building together is better</h3>
+                </div>
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Global Reach</h3>
-              <p className="text-muted-foreground">Connect with developers across schools, regions, and countries</p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="text-left"
-            >
-              <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mb-4">
-                <Users2 className="w-10 h-10 text-green-500" />
+              <div className="space-y-3">
+                {[
+                  { icon: Users2, text: "Easy Connections", desc: "Find developers who share your passion" },
+                  { icon: Rocket, text: "Project Showcase", desc: "Share your journey from idea to launch" },
+                  { icon: Lightbulb, text: "Passion-Based", desc: "Collaboration based on curiosity, not level" },
+                ].map(item => (
+                  <div key={item.text} className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
+                    <div className="w-8 h-8 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <item.icon className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold">{item.text}</div>
+                      <div className="text-xs text-muted-foreground">{item.desc}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Inclusive Community</h3>
-              <p className="text-muted-foreground">Open to all developers regardless of experience level or background</p>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
-              className="text-left"
-            >
-              <div className="w-20 h-20 bg-purple-500/10 rounded-full flex items-center justify-center mb-4">
-                <Rocket className="w-10 h-10 text-purple-500" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Next Generation</h3>
-              <p className="text-muted-foreground">Built for the next generation of innovators and creators</p>
-            </motion.div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Real Developer Activity Section - Enhanced */}
-      <section className="py-20 bg-background">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-left mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
-              See DevSpace in{" "}
-              <span className="text-primary">Action</span>
+      {/* ── FINAL CTA ── */}
+      <section className="py-24 relative overflow-hidden">
+        <div className="absolute inset-0 hero-mesh pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/8 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-xs text-primary font-medium mb-6">
+              <Star className="w-3 h-3" /> Join 500+ developers already building
+            </div>
+            <h2 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6">
+              Step Into the Space.
+              <br />
+              <span className="gradient-text">Build. Connect. Launch.</span>
             </h2>
-            <p className="text-xl text-muted-foreground max-w-3xl">
-              Watch how developers are actively collaborating, building projects, and growing together on DevSpace.
-              Join a community that's already making a difference.
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10">
+              DevSpace is waiting for you — where your code meets opportunity.
+              Share projects, find teammates, and grow together.
             </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              className="space-y-8"
-            >
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-card rounded-lg p-6 border border-border">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <GitCommit className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-foreground">500+</div>
-                      <div className="text-sm text-muted-foreground">Active Developers</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-card rounded-lg p-6 border border-border">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
-                      <Code2 className="w-5 h-5 text-green-500" />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-foreground">200+</div>
-                      <div className="text-sm text-muted-foreground">Projects Built</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-card rounded-lg p-6 border border-border">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                      <MessageSquare className="w-5 h-5 text-purple-500" />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-foreground">1.2k+</div>
-                      <div className="text-sm text-muted-foreground">Collaborations</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-card rounded-lg p-6 border border-border">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-orange-500" />
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-foreground">95%</div>
-                      <div className="text-sm text-muted-foreground">Success Rate</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="relative"
-            >
-              <Image
-                src="/illustrations/Developer-activity3.png"
-                alt="Developer Activity on DevSpace"
-                width={600}
-                height={400}
-                className="rounded-2xl shadow-2xl"
-              />
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Contact & Support Section */}
-      <section className="py-20 bg-background">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
-              className="space-y-8"
-            >
-              <div>
-                <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
-                  Need Help?{" "}
-                  <span className="text-primary">We're Here</span>
-                </h2>
-                <p className="text-xl text-muted-foreground mb-8">
-                  Have questions about DevSpace? Need help getting started?
-                  Our community and support team are here to help you succeed.
-                </p>
-              </div>
-
-              <div className="space-y-6">
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <MessageSquare className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground mb-2">Community Support</h3>
-                      <p className="text-muted-foreground mb-3">
-                        Get help from fellow developers in our active community discussions.
-                      </p>
-                      <Button variant="outline" size="sm">
-                        Join Discussion
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <BookOpen className="w-6 h-6 text-green-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground mb-2">Documentation</h3>
-                      <p className="text-muted-foreground mb-3">
-                        Comprehensive guides and tutorials to help you get the most out of DevSpace.
-                      </p>
-                      <Button variant="outline" size="sm">
-                        Read Docs
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-card border border-border rounded-lg p-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Users2 className="w-6 h-6 text-purple-500" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-foreground mb-2">Direct Support</h3>
-                      <p className="text-muted-foreground mb-3">
-                        Can't find what you're looking for? Contact our support team directly.
-                      </p>
-                      <Link href="/contact">
-                        <Button variant="outline" size="sm">
-                          Contact Us
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="relative"
-            >
-              <Image
-                src="/illustrations/Contact-us.png"
-                alt="Contact and Support"
-                width={600}
-                height={400}
-                className="rounded-2xl shadow-2xl"
-              />
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Final CTA Section */}
-      <section className="py-20 bg-muted/30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-left"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
-              Step Into the Space.<br />
-              <span className="text-primary">
-                Build. Connect. Launch.
-              </span>
-            </h2>
-            <p className="text-xl text-muted-foreground mb-8 max-w-6xl">
-              DevSpace is waiting for you — a place where your code meets opportunity.
-              Connect with developers who think like you. Share your projects with people who understand your passion.
-              Learn, teach, and grow — together.
-            </p>
-
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/auth/signup">
-                <Button size="lg" className="px-8 py-4 text-lg">
-                  🌟 Join Now with GitHub
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                <Button size="lg" className="btn-glow bg-primary hover:bg-primary/90 text-primary-foreground px-10 h-13 text-base font-semibold rounded-xl">
+                  <Github className="mr-2 h-4 w-4" /> Join with GitHub
                 </Button>
               </Link>
               <Link href="/auth/login">
-                <Button size="lg" variant="outline" className="px-8 py-4 text-lg">
-                  🔥 Sign in with Firebase
+                <Button size="lg" variant="outline" className="px-10 h-13 text-base font-semibold rounded-xl border-border/60 hover:border-primary/40">
+                  Sign In
                 </Button>
               </Link>
             </div>
-
-            <p className="text-muted-foreground text-sm mt-8">
-              DevSpace — Empowering Developers to Build Without Boundaries.<br />
-              © 2025 DevSpace. All rights reserved.
-            </p>
           </motion.div>
         </div>
       </section>
 
-      {/* Floating AI Chat Button */}
-      <motion.button
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.5, delay: 1 }}
-        onClick={() => setAiChatOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-primary rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 z-40"
-      >
-        <Bot className="w-6 h-6 text-primary-foreground" />
-      </motion.button>
-
-      {/* AI Chat Modal */}
-      <Dialog open={aiChatOpen} onOpenChange={setAiChatOpen}>
-        <DialogContent className="max-w-6xl h-[600px] bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="flex items-center space-x-2 text-foreground">
-              <Bot className="w-5 h-5" />
-              <span>Glow AI by DevSpace</span>
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="flex-1 flex flex-col space-y-4">
-            {/* Chat History */}
-            <div className="flex-1 overflow-y-auto space-y-4 max-h-96">
-              {chatHistory.length === 0 && (
-                <div className="text-center text-muted-foreground py-8">
-                  <Bot className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                  <p>Hi! I'm Glow AI by DevSpace. Ask me anything about development, coding, or DevSpace!</p>
-                </div>
-              )}
-
-              {chatHistory.map((message, index) => (
-                <div
-                  key={index}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground'
-                      }`}
-                  >
-                    {message.role === 'assistant' ? (
-                      <div className="prose prose-sm max-w-none prose-headings:text-current prose-p:text-current prose-strong:text-current prose-code:text-current prose-pre:text-current">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {message.content}
-                        </ReactMarkdown>
-                      </div>
-                    ) : (
-                      message.content
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-muted text-muted-foreground px-4 py-2 rounded-lg">
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                    </div>
-                  </div>
-                </div>
-              )}
+      {/* ── FOOTER ── */}
+      <footer className="border-t border-border/50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Terminal className="w-3 h-3 text-primary" />
             </div>
-
-            {/* Chat Input */}
-            <div className="flex space-x-2">
-              <Input
-                value={chatMessage}
-                onChange={(e) => setChatMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleAiChat(chatMessage)}
-                placeholder="Ask Glow AI anything..."
-                className="flex-1"
-                disabled={isLoading}
-              />
-              <Button
-                onClick={() => handleAiChat(chatMessage)}
-                disabled={!chatMessage.trim() || isLoading}
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-            </div>
+            <span>DevSpace — built by <a href="https://github.com/kingjethro999" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">King Jethro</a></span>
           </div>
-        </DialogContent>
-      </Dialog>
+          <p>© 2025 DevSpace. Empowering developers to build without boundaries.</p>
+        </div>
+      </footer>
     </div>
   )
 }
@@ -1346,10 +369,7 @@ export default function Home() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+        <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     }>
       <HomeContent />
