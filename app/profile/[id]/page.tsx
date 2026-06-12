@@ -314,7 +314,7 @@ export default function ProfilePage() {
               {isOwnProfile && (
                 <div className="pt-4 border-t border-border">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Theme</span>
+                    <span className="text-muted-foreground">Dark Mode</span>
                     <Switch
                       checked={theme !== 'light'}
                       onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
