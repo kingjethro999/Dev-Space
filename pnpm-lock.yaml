@@ -202,8 +202,8 @@ importers:
         specifier: ^19
         version: 19.2.2(@types/react@19.2.2)
       baseline-browser-mapping:
-        specifier: ^2.10.0
-        version: 2.10.0
+        specifier: ^2.10.37
+        version: 2.10.37
       postcss:
         specifier: ^8.5
         version: 8.5.6
@@ -1563,8 +1563,8 @@ packages:
   bail@2.0.2:
     resolution: {integrity: sha512-0xO6mYd7JB2YesxDKplafRpsiOzPt9V02ddPCLbY1xYGPOX24NTyN50qnUxgCPcSoYMhKpAuBTjQoRZCAkUDRw==}
 
-  baseline-browser-mapping@2.10.0:
-    resolution: {integrity: sha512-lIyg0szRfYbiy67j9KN8IyeD7q7hcmqnJ1ddWmNt19ItGpNN64mnllmxUNFIOdOm6by97jlL6wfpTTJrmnjWAA==}
+  baseline-browser-mapping@2.10.37:
+    resolution: {integrity: sha512-girxaJ7WZssDOFhzCGZTDKoTa1gk6A1TbflaYTpykLJ4UU9Fz9kx1aREM8JCuoVHbL8X8T/mJg7w2oYSq72Oig==}
     engines: {node: '>=6.0.0'}
     hasBin: true
 
@@ -3886,11 +3886,11 @@ snapshots:
 
   bail@2.0.2: {}
 
-  baseline-browser-mapping@2.10.0: {}
+  baseline-browser-mapping@2.10.37: {}
 
   browserslist@4.27.0:
     dependencies:
-      baseline-browser-mapping: 2.10.0
+      baseline-browser-mapping: 2.10.37
       caniuse-lite: 1.0.30001751
       electron-to-chromium: 1.5.240
       node-releases: 2.0.26

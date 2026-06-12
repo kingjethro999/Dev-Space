@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Bot, Plus, Copy, RefreshCw, ThumbsUp, ThumbsDown, Share, Upload, Eye, Pencil, Menu, X, Paperclip, Check, Brain, Globe, MoreVertical, Download, Trash2, Github } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import rehypeRaw from "rehype-raw"
 import { GLOW_AI_SYSTEM_PROMPT } from "@/lib/glow-ai-config"
 import { formatDistanceToNow } from "date-fns"
 import Image from "next/image"
@@ -51,6 +52,7 @@ export default function GlowAIPage() {
   const [showPagination, setShowPagination] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [deepThinkMode, setDeepThinkMode] = useState(false)
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [showGitHubDialog, setShowGitHubDialog] = useState(false)
   const messagesPerPage = 10
@@ -229,6 +231,71 @@ export default function GlowAIPage() {
     setChatHistory([])
   }
 
+  const fetchStreamingResponse = async (
+    systemPrompt: string,
+    messagesList: any[],
+    onContent: (content: string) => void,
+    webSearchEnabledVal: boolean = false
+  ) => {
+    const response = await fetch("/api/groq", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...messagesList
+        ],
+        webSearch: webSearchEnabledVal
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      try {
+        const errJson = JSON.parse(errText);
+        throw new Error(errJson.error || errJson.message || "Failed to fetch AI response");
+      } catch (e) {
+        throw new Error(errText || "Failed to fetch AI response");
+      }
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("Response body is not readable");
+
+    const decoder = new TextDecoder();
+    let accumulatedContent = "";
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const cleanLine = line.trim();
+        if (!cleanLine) continue;
+        if (cleanLine === "data: [DONE]") continue;
+        if (cleanLine.startsWith("data: ")) {
+          try {
+            const data = JSON.parse(cleanLine.substring(6));
+            const delta = data.choices?.[0]?.delta?.content || "";
+            if (delta) {
+              accumulatedContent += delta;
+              onContent(accumulatedContent);
+            }
+          } catch (e) {
+            // Ignore incomplete chunks
+          }
+        }
+      }
+    }
+    return accumulatedContent;
+  };
+
   const handleAiChat = async (message: string) => {
     if (!message.trim() || !user) return
 
@@ -239,124 +306,44 @@ export default function GlowAIPage() {
     setChatMessage("")
 
     try {
-      const response = await fetch("/api/openrouter", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          "model": "google/gemma-3-27b-it:free",
-          "messages": [
-            {
-              "role": "system",
-              "content": deepThinkMode
-                ? `${GLOW_AI_SYSTEM_PROMPT}\n\nIMPORTANT: You are in DeepThink mode. Provide thorough, detailed, and comprehensive responses. Analyze deeply, consider multiple perspectives, and give extensive explanations. Be as detailed and thorough as possible.`
-                : GLOW_AI_SYSTEM_PROMPT
-            },
-            ...chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
-            { role: "user", content: message }
-          ],
-          ...(deepThinkMode && {
-            "max_tokens": 4000,
-            "temperature": 0.7
-          })
-        })
-      })
+      const systemPrompt = deepThinkMode
+        ? `${GLOW_AI_SYSTEM_PROMPT}\n\nIMPORTANT: You are in DeepThink mode. Provide thorough, detailed, and comprehensive responses. Analyze deeply, consider multiple perspectives, and give extensive explanations. Be as detailed and thorough as possible.`
+        : GLOW_AI_SYSTEM_PROMPT;
 
-      if (!response.ok) {
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          console.error('OpenRouter error details:', errorData);
+      // Add a placeholder message for the assistant in the chat history
+      let currentHistory = [...updatedHistory, { role: 'assistant' as const, content: '', timestamp: new Date() }]
+      setChatHistory(currentHistory)
 
-          // Try multiple error message fields
-          if (errorData.message) {
-            errorMessage = errorData.message;
-          } else if (errorData.error) {
-            if (typeof errorData.error === 'string') {
-              errorMessage = errorData.error;
-            } else if (errorData.error.message) {
-              errorMessage = errorData.error.message;
-            } else if (errorData.error.type) {
-              errorMessage = `${errorData.error.type}: ${errorData.error.message || 'Unknown error'}`;
+      const apiMessages = [
+        ...chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
+        { role: "user", content: message }
+      ];
+
+      const finalAssistantContent = await fetchStreamingResponse(
+        systemPrompt,
+        apiMessages,
+        (content) => {
+          setChatHistory(prev => {
+            const next = [...prev];
+            if (next.length > 0 && next[next.length - 1].role === 'assistant') {
+              next[next.length - 1] = {
+                ...next[next.length - 1],
+                content: content
+              };
             }
-          } else if (errorData.details?.error?.message) {
-            errorMessage = errorData.details.error.message;
-          }
+            return next;
+          });
+        },
+        webSearchEnabled
+      );
 
-          // Check for specific OpenRouter error types
-          if (errorData.error?.type === 'provider_error' || errorData.error?.type === 'model_not_found') {
-            errorMessage = errorData.error.message || 'The AI model is currently unavailable. Please try again later or switch to a different model.';
-          }
-        } catch (e) {
-          console.error('Error parsing error response:', e);
-          errorMessage = `${response.status}: ${response.statusText || 'Unknown error'}`;
-        }
-
-        if (response.status === 429) {
-          throw new Error('Rate limit exceeded. Please wait a moment before trying again.')
-        }
-
-        // Show user-friendly error
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive"
-        });
-
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json()
-
-      let assistantMessage = ''
-      if (data.choices && data.choices.length > 0) {
-        const choice = data.choices[0]
-        if (choice.message) {
-          assistantMessage = typeof choice.message.content === 'string'
-            ? choice.message.content
-            : choice.message.content?.[0]?.text || JSON.stringify(choice.message.content)
-        } else if (choice.text) {
-          assistantMessage = choice.text
-        }
-      } else if (data.content) {
-        assistantMessage = typeof data.content === 'string' ? data.content : data.content[0]?.text || JSON.stringify(data.content)
-      } else if (data.message) {
-        assistantMessage = data.message
-      } else {
-        console.error('Unexpected response format:', data)
-        assistantMessage = 'I received an unexpected response format. Please try again.'
-      }
-
-      const assistantResponse: Message = {
-        role: 'assistant',
-        content: assistantMessage,
-        timestamp: new Date()
-      }
-
-      const finalHistory = [...updatedHistory, assistantResponse]
+      const finalHistory: Message[] = [
+        ...updatedHistory,
+        { role: 'assistant' as const, content: finalAssistantContent, timestamp: new Date() }
+      ]
       setChatHistory(finalHistory)
 
       // Update current session or create new one
-      if (currentSessionId) {
-        setChatSessions(prev => prev.map(s =>
-          s.id === currentSessionId
-            ? { ...s, messages: finalHistory, title: finalHistory[0]?.content?.substring(0, 50) || s.title, updatedAt: new Date() }
-            : s
-        ))
-      } else {
-        // Create new session if none exists
-        const newSession: ChatSession = {
-          id: `session-${Date.now()}`,
-          title: finalHistory[0]?.content?.substring(0, 50) || "New Chat",
-          messages: finalHistory,
-          updatedAt: new Date()
-        }
-        setChatSessions([newSession, ...chatSessions])
-        setCurrentSessionId(newSession.id)
-      }
-
-      // Update current session immediately
       let updatedSessions = chatSessions
       if (currentSessionId) {
         updatedSessions = chatSessions.map(s =>
@@ -383,36 +370,23 @@ export default function GlowAIPage() {
     } catch (error) {
       console.error('AI Chat error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Sorry, I encountered an error. Please try again.'
-      const errorResponse: Message = {
-        role: 'assistant',
-        content: errorMessage,
-        timestamp: new Date()
-      }
-      const finalHistory = [...updatedHistory, errorResponse]
-      setChatHistory(finalHistory)
-
-      // Update session or create new one
-      let updatedSessions = chatSessions
-      if (currentSessionId) {
-        updatedSessions = chatSessions.map(s =>
-          s.id === currentSessionId
-            ? { ...s, messages: finalHistory, updatedAt: new Date() }
-            : s
-        )
-        setChatSessions(updatedSessions)
-      } else {
-        const newSession: ChatSession = {
-          id: `session-${Date.now()}`,
-          title: finalHistory[0]?.content?.substring(0, 50) || "New Chat",
-          messages: finalHistory,
-          updatedAt: new Date()
+      
+      setChatHistory(prev => {
+        const next = [...prev];
+        if (next.length > 0 && next[next.length - 1].role === 'assistant') {
+          next[next.length - 1] = {
+            ...next[next.length - 1],
+            content: `Error: ${errorMessage}`
+          };
         }
-        updatedSessions = [newSession, ...chatSessions]
-        setChatSessions(updatedSessions)
-        setCurrentSessionId(newSession.id)
-      }
+        return next;
+      });
 
-      await saveChatHistory(finalHistory, updatedSessions)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false)
     }
@@ -509,62 +483,64 @@ export default function GlowAIPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/openrouter", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          "model": "google/gemma-3-27b-it:free",
-          "messages": [
-            {
-              "role": "system",
-              "content": GLOW_AI_SYSTEM_PROMPT
-            },
-            ...previousHistory.map(msg => ({ role: msg.role, content: msg.content })),
-            { role: "user", content: userMessage.content }
-          ]
-        })
-      })
+      const systemPrompt = deepThinkMode
+        ? `${GLOW_AI_SYSTEM_PROMPT}\n\nIMPORTANT: You are in DeepThink mode. Provide thorough, detailed, and comprehensive responses. Analyze deeply, consider multiple perspectives, and give extensive explanations. Be as detailed and thorough as possible.`
+        : GLOW_AI_SYSTEM_PROMPT;
 
-      if (!response.ok) {
-        throw new Error('Failed to regenerate response')
-      }
-
-      const data = await response.json()
-      let assistantMessage = ''
-
-      if (data.choices && data.choices.length > 0) {
-        const choice = data.choices[0]
-        if (choice.message) {
-          assistantMessage = typeof choice.message.content === 'string'
-            ? choice.message.content
-            : choice.message.content?.[0]?.text || JSON.stringify(choice.message.content)
-        }
-      }
-
-      const newResponse: Message = { role: 'assistant', content: assistantMessage, timestamp: new Date() }
-      const newHistory = [...updatedHistory, newResponse, ...chatHistory.slice(messageIndex + 1)]
+      // Add a placeholder/empty message for the assistant at the messageIndex position
+      let newHistory: Message[] = [...updatedHistory, { role: 'assistant' as const, content: '', timestamp: new Date() }, ...chatHistory.slice(messageIndex + 1)]
       setChatHistory(newHistory)
+
+      const apiMessages = [
+        ...previousHistory.map(msg => ({ role: msg.role, content: msg.content })),
+        { role: "user", content: userMessage.content }
+      ];
+
+      const finalAssistantContent = await fetchStreamingResponse(
+        systemPrompt,
+        apiMessages,
+        (content) => {
+          setChatHistory(prev => {
+            const next = [...prev];
+            const targetIdx = messageIndex; // the assistant message is at index messageIndex
+            if (next.length > targetIdx && next[targetIdx].role === 'assistant') {
+              next[targetIdx] = {
+                ...next[targetIdx],
+                content: content
+              };
+            }
+            return next;
+          });
+        },
+        webSearchEnabled
+      );
+
+      const finalHistory: Message[] = [
+        ...updatedHistory,
+        { role: 'assistant' as const, content: finalAssistantContent, timestamp: new Date() },
+        ...chatHistory.slice(messageIndex + 1)
+      ]
+      setChatHistory(finalHistory)
 
       // Update the current session with new history
       let updatedSessions = chatSessions
       if (currentSessionId) {
         updatedSessions = chatSessions.map(s =>
           s.id === currentSessionId
-            ? { ...s, messages: newHistory, updatedAt: new Date() }
+            ? { ...s, messages: finalHistory, updatedAt: new Date() }
             : s
         )
         setChatSessions(updatedSessions)
       }
 
-      await saveChatHistory(newHistory, updatedSessions)
+      await saveChatHistory(finalHistory, updatedSessions)
 
       toast({
         title: "Response regenerated",
         description: "AI response has been regenerated",
       })
     } catch (error) {
+      console.error('AI Chat regenerate error:', error)
       toast({
         title: "Error",
         description: "Failed to regenerate response. Please try again.",
@@ -746,66 +722,55 @@ export default function GlowAIPage() {
         setChatHistory(updatedHistory)
 
         try {
-          const response = await fetch("/api/openrouter", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              "model": "google/gemma-3-27b-it:free",
-              "messages": [
+          const systemPrompt = deepThinkMode
+            ? `${GLOW_AI_SYSTEM_PROMPT}\n\nIMPORTANT: You are in DeepThink mode. Provide thorough, detailed, and comprehensive responses. Analyze deeply, consider multiple perspectives, and give extensive explanations. Be as detailed and thorough as possible.`
+            : GLOW_AI_SYSTEM_PROMPT;
+
+          // Add a placeholder message for the assistant in the chat history
+          let currentHistory = [...updatedHistory, { role: 'assistant' as const, content: '', timestamp: new Date() }]
+          setChatHistory(currentHistory)
+
+          const apiMessages = [
+            ...chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
+            {
+              role: "user",
+              content: [
                 {
-                  "role": "system",
-                  "content": deepThinkMode
-                    ? `${GLOW_AI_SYSTEM_PROMPT}\n\nIMPORTANT: You are in DeepThink mode. Provide thorough, detailed, and comprehensive responses. Analyze deeply, consider multiple perspectives, and give extensive explanations. Be as detailed and thorough as possible.`
-                    : GLOW_AI_SYSTEM_PROMPT
+                  type: "text",
+                  text: "Please analyze this image and describe what you see."
                 },
-                ...chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
                 {
-                  "role": "user",
-                  "content": [
-                    {
-                      "type": "text",
-                      "text": "Please analyze this image and describe what you see."
-                    },
-                    {
-                      "type": "image_url",
-                      "image_url": {
-                        "url": imageUrl
-                      }
-                    }
-                  ]
+                  type: "image_url",
+                  image_url: {
+                    url: imageUrl
+                  }
                 }
-              ],
-              ...(deepThinkMode && {
-                "max_tokens": 4000,
-                "temperature": 0.7
-              })
-            })
-          })
-
-          if (!response.ok) {
-            throw new Error('Failed to process image')
-          }
-
-          const data = await response.json()
-          let assistantMessage = ''
-          if (data.choices && data.choices.length > 0) {
-            const choice = data.choices[0]
-            if (choice.message) {
-              assistantMessage = typeof choice.message.content === 'string'
-                ? choice.message.content
-                : choice.message.content?.[0]?.text || JSON.stringify(choice.message.content)
+              ]
             }
-          }
+          ];
 
-          const assistantResponse: Message = {
-            role: 'assistant',
-            content: assistantMessage,
-            timestamp: new Date()
-          }
+          const finalAssistantContent = await fetchStreamingResponse(
+            systemPrompt,
+            apiMessages,
+            (content) => {
+              setChatHistory(prev => {
+                const next = [...prev];
+                if (next.length > 0 && next[next.length - 1].role === 'assistant') {
+                  next[next.length - 1] = {
+                    ...next[next.length - 1],
+                    content: content
+                  };
+                }
+                return next;
+              });
+            },
+            false
+          );
 
-          const finalHistory = [...updatedHistory, assistantResponse]
+          const finalHistory: Message[] = [
+            ...updatedHistory,
+            { role: 'assistant' as const, content: finalAssistantContent, timestamp: new Date() }
+          ]
           setChatHistory(finalHistory)
 
           // Update current session or create new one
@@ -813,14 +778,14 @@ export default function GlowAIPage() {
           if (currentSessionId) {
             updatedSessions = chatSessions.map(s =>
               s.id === currentSessionId
-                ? { ...s, messages: finalHistory, title: finalHistory.find(m => m.role === 'user')?.content?.substring(0, 50) || s.title, updatedAt: new Date() }
+                ? { ...s, messages: finalHistory, title: "Image Analysis", updatedAt: new Date() }
                 : s
             )
             setChatSessions(updatedSessions)
           } else {
             const newSession: ChatSession = {
               id: `session-${Date.now()}`,
-              title: finalHistory.find(m => m.role === 'user')?.content?.substring(0, 50) || "New Chat",
+              title: "Image Analysis",
               messages: finalHistory,
               updatedAt: new Date()
             }
@@ -837,11 +802,23 @@ export default function GlowAIPage() {
           })
         } catch (error) {
           console.error('Image processing error:', error)
+          const errorMessage = error instanceof Error ? error.message : 'Could not process image.'
           toast({
             title: "Processing failed",
-            description: "Could not process image. Please try again.",
+            description: errorMessage,
             variant: "destructive"
           })
+          
+          setChatHistory(prev => {
+            const next = [...prev];
+            if (next.length > 0 && next[next.length - 1].role === 'assistant') {
+              next[next.length - 1] = {
+                ...next[next.length - 1],
+                content: `Error: ${errorMessage}`
+              };
+            }
+            return next;
+          });
         } finally {
           setIsLoading(false)
         }
@@ -874,52 +851,41 @@ export default function GlowAIPage() {
         setChatHistory(updatedHistory)
 
         try {
-          const response = await fetch("/api/openrouter", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
+          const systemPrompt = deepThinkMode
+            ? `${GLOW_AI_SYSTEM_PROMPT}\n\nIMPORTANT: You are in DeepThink mode. Provide thorough, detailed, and comprehensive responses. Analyze deeply, consider multiple perspectives, and give extensive explanations. Be as detailed and thorough as possible.`
+            : GLOW_AI_SYSTEM_PROMPT;
+
+          // Add a placeholder message for the assistant in the chat history
+          let currentHistory = [...updatedHistory, { role: 'assistant' as const, content: '', timestamp: new Date() }]
+          setChatHistory(currentHistory)
+
+          const apiMessages = [
+            ...chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
+            { role: "user", content: userMessage.content }
+          ];
+
+          const finalAssistantContent = await fetchStreamingResponse(
+            systemPrompt,
+            apiMessages,
+            (content) => {
+              setChatHistory(prev => {
+                const next = [...prev];
+                if (next.length > 0 && next[next.length - 1].role === 'assistant') {
+                  next[next.length - 1] = {
+                    ...next[next.length - 1],
+                    content: content
+                  };
+                }
+                return next;
+              });
             },
-            body: JSON.stringify({
-              "model": "google/gemma-3-27b-it:free",
-              "messages": [
-                {
-                  "role": "system",
-                  "content": deepThinkMode
-                    ? `${GLOW_AI_SYSTEM_PROMPT}\n\nIMPORTANT: You are in DeepThink mode. Provide thorough, detailed, and comprehensive responses. Analyze deeply, consider multiple perspectives, and give extensive explanations. Be as detailed and thorough as possible.`
-                    : GLOW_AI_SYSTEM_PROMPT
-                },
-                ...chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
-                { role: "user", content: userMessage.content }
-              ],
-              ...(deepThinkMode && {
-                "max_tokens": 4000,
-                "temperature": 0.7
-              })
-            })
-          })
+            false
+          );
 
-          if (!response.ok) {
-            throw new Error('Failed to process file')
-          }
-
-          const data = await response.json()
-          let assistantMessage = ''
-          if (data.choices && data.choices.length > 0) {
-            const choice = data.choices[0]
-            if (choice.message) {
-              assistantMessage = typeof choice.message.content === 'string'
-                ? choice.message.content
-                : choice.message.content?.[0]?.text || JSON.stringify(choice.message.content)
-            }
-          }
-
-          const assistantResponse: Message = {
-            role: 'assistant',
-            content: assistantMessage,
-            timestamp: new Date()
-          }
-
-          const finalHistory = [...updatedHistory, assistantResponse]
+          const finalHistory: Message[] = [
+            ...updatedHistory,
+            { role: 'assistant' as const, content: finalAssistantContent, timestamp: new Date() }
+          ]
           setChatHistory(finalHistory)
 
           // Update current session or create new one
@@ -927,14 +893,14 @@ export default function GlowAIPage() {
           if (currentSessionId) {
             updatedSessions = chatSessions.map(s =>
               s.id === currentSessionId
-                ? { ...s, messages: finalHistory, title: finalHistory.find(m => m.role === 'user')?.content?.substring(0, 50) || s.title, updatedAt: new Date() }
+                ? { ...s, messages: finalHistory, title: `Analyze: ${fileName}`, updatedAt: new Date() }
                 : s
             )
             setChatSessions(updatedSessions)
           } else {
             const newSession: ChatSession = {
               id: `session-${Date.now()}`,
-              title: finalHistory.find(m => m.role === 'user')?.content?.substring(0, 50) || "New Chat",
+              title: `Analyze: ${fileName}`,
               messages: finalHistory,
               updatedAt: new Date()
             }
@@ -951,11 +917,23 @@ export default function GlowAIPage() {
           })
         } catch (error) {
           console.error('File processing error:', error)
+          const errorMessage = error instanceof Error ? error.message : 'Could not process file.'
           toast({
             title: "Processing failed",
-            description: "Could not process file. Please try again.",
+            description: errorMessage,
             variant: "destructive"
           })
+          
+          setChatHistory(prev => {
+            const next = [...prev];
+            if (next.length > 0 && next[next.length - 1].role === 'assistant') {
+              next[next.length - 1] = {
+                ...next[next.length - 1],
+                content: `Error: ${errorMessage}`
+              };
+            }
+            return next;
+          });
         } finally {
           setIsLoading(false)
         }
@@ -1044,92 +1022,41 @@ export default function GlowAIPage() {
       setChatHistory(updatedHistory)
 
       // Send to AI
-      const response = await fetch("/api/openrouter", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          "model": "google/gemma-3-27b-it:free",
-          "messages": [
-            {
-              "role": "system",
-              "content": deepThinkMode
-                ? `${GLOW_AI_SYSTEM_PROMPT}\n\nIMPORTANT: You are in DeepThink mode. Provide thorough, detailed, and comprehensive responses. Analyze deeply, consider multiple perspectives, and give extensive explanations. Be as detailed and thorough as possible.`
-                : GLOW_AI_SYSTEM_PROMPT
-            },
-            ...chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
-            { role: "user", content: repoContext }
-          ],
-          ...(deepThinkMode && {
-            "max_tokens": 4000,
-            "temperature": 0.7
-          })
-        })
-      })
+      const systemPrompt = deepThinkMode
+        ? `${GLOW_AI_SYSTEM_PROMPT}\n\nIMPORTANT: You are in DeepThink mode. Provide thorough, detailed, and comprehensive responses. Analyze deeply, consider multiple perspectives, and give extensive explanations. Be as detailed and thorough as possible.`
+        : GLOW_AI_SYSTEM_PROMPT;
 
-      if (!response.ok) {
-        let errorMessage = 'Failed to process repository';
-        try {
-          const errorData = await response.json();
-          console.error('OpenRouter error details (GitHub repo):', errorData);
+      // Add a placeholder message for the assistant in the chat history
+      let currentHistory = [...updatedHistory, { role: 'assistant' as const, content: '', timestamp: new Date() }]
+      setChatHistory(currentHistory)
 
-          // Try multiple error message fields
-          if (errorData.message) {
-            errorMessage = errorData.message;
-          } else if (errorData.error) {
-            if (typeof errorData.error === 'string') {
-              errorMessage = errorData.error;
-            } else if (errorData.error.message) {
-              errorMessage = errorData.error.message;
-            } else if (errorData.error.type) {
-              errorMessage = `${errorData.error.type}: ${errorData.error.message || 'Unknown error'}`;
+      const apiMessages = [
+        ...chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
+        { role: "user", content: repoContext }
+      ];
+
+      const finalAssistantContent = await fetchStreamingResponse(
+        systemPrompt,
+        apiMessages,
+        (content) => {
+          setChatHistory(prev => {
+            const next = [...prev];
+            if (next.length > 0 && next[next.length - 1].role === 'assistant') {
+              next[next.length - 1] = {
+                ...next[next.length - 1],
+                content: content
+              };
             }
-          } else if (errorData.details?.error?.message) {
-            errorMessage = errorData.details.error.message;
-          }
+            return next;
+          });
+        },
+        false
+      );
 
-          // Check for specific OpenRouter error types
-          if (errorData.error?.type === 'provider_error' || errorData.error?.type === 'model_not_found') {
-            errorMessage = errorData.error.message || 'The AI model is currently unavailable. Please try again later.';
-          }
-        } catch (e) {
-          console.error('Error parsing error response:', e);
-          errorMessage = `${response.status}: ${response.statusText || 'Failed to process repository'}`;
-        }
-
-        if (response.status === 429) {
-          errorMessage = 'Rate limit exceeded. Please wait a moment before trying again.';
-        }
-
-        // Show user-friendly error
-        toast({
-          title: "Error processing repository",
-          description: errorMessage,
-          variant: "destructive"
-        });
-
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json()
-      let assistantMessage = ''
-      if (data.choices && data.choices.length > 0) {
-        const choice = data.choices[0]
-        if (choice.message) {
-          assistantMessage = typeof choice.message.content === 'string'
-            ? choice.message.content
-            : choice.message.content?.[0]?.text || JSON.stringify(choice.message.content)
-        }
-      }
-
-      const assistantResponse: Message = {
-        role: 'assistant',
-        content: assistantMessage,
-        timestamp: new Date()
-      }
-
-      const finalHistory = [...updatedHistory, assistantResponse]
+      const finalHistory: Message[] = [
+        ...updatedHistory,
+        { role: 'assistant' as const, content: finalAssistantContent, timestamp: new Date() }
+      ]
       setChatHistory(finalHistory)
 
       // Update current session or create new one
@@ -1137,14 +1064,14 @@ export default function GlowAIPage() {
       if (currentSessionId) {
         updatedSessions = chatSessions.map(s =>
           s.id === currentSessionId
-            ? { ...s, messages: finalHistory, title: finalHistory.find(m => m.role === 'user')?.content?.substring(0, 50) || s.title, updatedAt: new Date() }
+            ? { ...s, messages: finalHistory, title: `Repo: ${repository.name}`, updatedAt: new Date() }
             : s
         )
         setChatSessions(updatedSessions)
       } else {
         const newSession: ChatSession = {
           id: `session-${Date.now()}`,
-          title: finalHistory.find(m => m.role === 'user')?.content?.substring(0, 50) || "New Chat",
+          title: `Repo: ${repository.name}`,
           messages: finalHistory,
           updatedAt: new Date()
         }
@@ -1161,11 +1088,23 @@ export default function GlowAIPage() {
       })
     } catch (error) {
       console.error('GitHub repo processing error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Could not process repository.'
       toast({
         title: "Error",
-        description: "Could not process repository. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       })
+      
+      setChatHistory(prev => {
+        const next = [...prev];
+        if (next.length > 0 && next[next.length - 1].role === 'assistant') {
+          next[next.length - 1] = {
+            ...next[next.length - 1],
+            content: `Error: ${errorMessage}`
+          };
+        }
+        return next;
+      });
     } finally {
       setIsLoading(false)
     }
@@ -1607,8 +1546,65 @@ export default function GlowAIPage() {
                       </div>
                     ) : (
                       <div className="max-w-[85%]">
-                        <div className="text-sm leading-relaxed prose dark:prose-invert max-w-none prose-p:text-foreground prose-headings:text-foreground prose-strong:text-foreground prose-code:text-foreground">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        <div className="text-sm leading-relaxed max-w-none">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            rehypePlugins={[rehypeRaw]}
+                            components={{
+                              h1: ({ node, ...props }) => <h1 className="text-lg font-extrabold text-white mt-4 mb-2 flex items-center gap-2 border-b border-white/10 pb-1" {...props} />,
+                              h2: ({ node, ...props }) => <h2 className="text-base font-bold text-slate-100 mt-3.5 mb-2" {...props} />,
+                              h3: ({ node, ...props }) => <h3 className="text-sm font-semibold text-slate-200 mt-3 mb-1" {...props} />,
+                              ul: ({ node, ...props }) => <ul className="list-disc pl-6 my-2 space-y-1 text-slate-300" {...props} />,
+                              ol: ({ node, ...props }) => <ol className="list-decimal pl-6 my-2 space-y-1 text-slate-300" {...props} />,
+                              li: ({ node, ...props }) => <li className="text-sm leading-relaxed" {...props} />,
+                              p: ({ node, ...props }) => <p className="text-sm leading-relaxed text-slate-300 my-2" {...props} />,
+                              blockquote: ({ node, ...props }) => (
+                                <blockquote className="border-l-4 border-indigo-500 bg-indigo-500/5 px-4 py-2 my-3 rounded-r-xl text-slate-300 italic" {...props} />
+                              ),
+                              table: ({ node, ...props }) => (
+                                <div className="overflow-x-auto my-4 rounded-xl border border-white/10">
+                                  <table className="w-full text-left border-collapse text-xs" {...props} />
+                                </div>
+                              ),
+                              thead: ({ node, ...props }) => <thead className="bg-white/5 text-slate-200 font-bold border-b border-white/10" {...props} />,
+                              tbody: ({ node, ...props }) => <tbody className="divide-y divide-white/5" {...props} />,
+                              tr: ({ node, ...props }) => <tr className="hover:bg-white/5 transition-colors" {...props} />,
+                              th: ({ node, ...props }) => <th className="px-4 py-2 font-semibold" {...props} />,
+                              td: ({ node, ...props }) => <td className="px-4 py-2 text-slate-300" {...props} />,
+                              code: ({ node, inline, className, children, ...props }: any) => {
+                                const match = /language-(\w+)/.exec(className || '');
+                                const isInline = !match && !children.includes('\n');
+                                if (isInline) {
+                                  return (
+                                    <code className="bg-slate-950 text-indigo-300 px-1.5 py-0.5 rounded-md font-mono text-xs border border-white/5" {...props}>
+                                      {children}
+                                    </code>
+                                  );
+                                }
+                                return (
+                                  <div className="relative my-4 group rounded-xl overflow-hidden border border-white/10 bg-slate-950 shadow-md">
+                                    {match && (
+                                      <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 border-b border-white/5 text-[10px] font-mono font-semibold text-slate-400">
+                                        <span>{match[1].toUpperCase()}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => navigator.clipboard.writeText(String(children).replace(/\n$/, ''))}
+                                          className="hover:text-white transition-colors"
+                                        >
+                                          Copy Code
+                                        </button>
+                                      </div>
+                                    )}
+                                    <pre className="p-4 overflow-x-auto text-xs text-indigo-100 font-mono leading-relaxed bg-slate-950">
+                                      <code className={className} {...props}>
+                                        {children}
+                                      </code>
+                                    </pre>
+                                  </div>
+                                );
+                              }
+                            }}
+                          >
                             {message.content}
                           </ReactMarkdown>
                         </div>
@@ -1721,11 +1717,12 @@ export default function GlowAIPage() {
                   }
                 }}
                 placeholder="Message GLOW"
-                className="w-full bg-muted border border-border rounded-lg pl-28 pr-28 py-3 text-sm focus:outline-none focus:border-primary text-foreground placeholder-muted-foreground"
+                className="w-full bg-muted border border-border rounded-lg pl-[175px] pr-28 py-3 text-sm focus:outline-none focus:border-primary text-foreground placeholder-muted-foreground"
                 disabled={isLoading}
               />
-              <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                 <button
+                  type="button"
                   onClick={handleDeepThink}
                   className={`px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 border ${deepThinkMode
                     ? 'bg-primary/20 border-primary text-primary hover:bg-primary/30'
@@ -1735,6 +1732,18 @@ export default function GlowAIPage() {
                 >
                   <Brain className={`w-3 h-3 ${deepThinkMode ? 'fill-current' : ''}`} />
                   DeepThink
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                  className={`px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 border ${webSearchEnabled
+                    ? 'bg-primary/20 border-primary text-primary hover:bg-primary/30'
+                    : 'bg-background hover:bg-muted/80 border-border'
+                    }`}
+                  title="Toggle Web Search"
+                >
+                  <Globe className={`w-3 h-3 ${webSearchEnabled ? 'text-primary animate-pulse' : 'text-muted-foreground'}`} />
+                  Search
                 </button>
               </div>
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">

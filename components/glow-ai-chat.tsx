@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Bot, Send, X, History, Trash2 } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import rehypeRaw from "rehype-raw"
 import { motion, AnimatePresence } from "framer-motion"
 import { GLOW_AI_SYSTEM_PROMPT } from "@/lib/glow-ai-config"
 
@@ -63,7 +64,7 @@ export function GlowAIChat({ showButton = true, defaultOpen = false }: GlowAICha
           // Convert timestamps to dates
           const history = data.history.map((msg: any) => ({
             ...msg,
-            timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date()
+            timestamp: msg.timestamp ? new Date(msg.timestamp) : new  Date()
           }))
           setChatHistory(history)
         }
@@ -118,107 +119,109 @@ export function GlowAIChat({ showButton = true, defaultOpen = false }: GlowAICha
     setChatHistory(updatedHistory)
     setChatMessage("")
 
+    // Add empty placeholder assistant message that we'll stream into
+    setChatHistory([...updatedHistory, { role: 'assistant' as const, content: '', timestamp: new Date() }])
+
     try {
-      // Use our secure API route instead of calling OpenRouter directly
-      const response = await fetch("/api/openrouter", {
+      const response = await fetch("/api/groq", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          "model": "google/gemma-3-27b-it:free",
-          "messages": [
-            {
-              "role": "system",
-              "content": GLOW_AI_SYSTEM_PROMPT
-            },
+          systemPrompt: GLOW_AI_SYSTEM_PROMPT,
+          messages: [
             ...chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
             { role: "user", content: message }
-          ]
+          ],
+          webSearch: false
         })
       })
 
       if (!response.ok) {
-        // Try to get error details
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          if (errorData.error) {
-            errorMessage = typeof errorData.error === 'string' 
-              ? errorData.error 
-              : errorData.error.message || errorMessage;
-          } else if (errorData.message) {
-            errorMessage = errorData.message;
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) {
+        throw new Error('No body reader available');
+      }
+
+      let accumulatedContent = '';
+      let isDone = false;
+
+      while (!isDone) {
+        const { value, done } = await reader.read();
+        isDone = done;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          
+          // Parse Server-Sent Events (SSE) from the response
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.slice(6).trim();
+              if (dataStr === '[DONE]') {
+                isDone = true;
+                break;
+              }
+              try {
+                const data = JSON.parse(dataStr);
+                if (data.text) {
+                  accumulatedContent += data.text;
+                  setChatHistory(prev => {
+                    const next = [...prev];
+                    if (next.length > 0 && next[next.length - 1].role === 'assistant') {
+                      next[next.length - 1] = {
+                        ...next[next.length - 1],
+                        content: accumulatedContent
+                      };
+                    }
+                    return next;
+                  });
+                }
+              } catch (e) {
+                // Ignore parsing errors for partial or empty lines
+              }
+            }
           }
-        } catch (e) {
-          // If response is not JSON, use status text
-          errorMessage = `${response.status}: ${response.statusText || 'Unknown error'}`;
         }
-
-        if (response.status === 429) {
-          throw new Error('Rate limit exceeded. Please wait a moment before trying again.')
-        }
-        throw new Error(errorMessage);
       }
 
-      const data = await response.json()
-
-      // Handle different response formats (OpenRouter/Gemini format)
-      let assistantMessage = ''
-      if (data.choices && data.choices.length > 0) {
-        const choice = data.choices[0]
-        // Handle both string content and array content formats
-        if (choice.message) {
-          assistantMessage = typeof choice.message.content === 'string' 
-            ? choice.message.content 
-            : choice.message.content?.[0]?.text || JSON.stringify(choice.message.content)
-        } else if (choice.text) {
-          assistantMessage = choice.text
-        }
-      } else if (data.content) {
-        assistantMessage = typeof data.content === 'string' ? data.content : data.content[0]?.text || JSON.stringify(data.content)
-      } else if (data.message) {
-        assistantMessage = data.message
-      } else {
-        console.error('Unexpected response format:', data)
-        assistantMessage = 'I received an unexpected response format. Please try again.'
-      }
-
-      const assistantResponse: Message = { 
-        role: 'assistant', 
-        content: assistantMessage,
-        timestamp: new Date()
-      }
-      
-      const finalHistory = [...updatedHistory, assistantResponse]
+      const finalHistory: Message[] = [
+        ...updatedHistory,
+        { role: 'assistant' as const, content: accumulatedContent, timestamp: new Date() }
+      ]
       setChatHistory(finalHistory)
-      
-      // Save history to Firestore
       await saveChatHistory(finalHistory)
     } catch (error) {
       console.error('AI Chat error:', error)
-
-      // Provide helpful fallback responses based on error type
       let errorMessage = 'Sorry, I encountered an error. Please try again.'
 
       if (error instanceof Error) {
-        if (error.message.includes('Rate limit')) {
-          errorMessage = 'I\'m getting too many requests right now. Please wait a moment and try again. In the meantime, feel free to explore DevSpace features!'
-        } else if (error.message.includes('429')) {
-          errorMessage = 'Rate limit exceeded. Please wait a moment before trying again. You can explore the DevSpace platform while you wait!'
+        if (error.message.includes('Rate limit') || error.message.includes('429')) {
+          errorMessage = 'Rate limit exceeded. Please wait a moment before trying again.'
         } else {
           errorMessage = `Sorry, I encountered an error: ${error.message}. Please try again later.`
         }
       }
 
-      const errorResponse: Message = { 
-        role: 'assistant', 
-        content: errorMessage,
-        timestamp: new Date()
-      }
+      setChatHistory(prev => {
+        const next = [...prev];
+        if (next.length > 0 && next[next.length - 1].role === 'assistant') {
+          next[next.length - 1] = {
+            ...next[next.length - 1],
+            content: errorMessage
+          };
+        }
+        return next;
+      });
       
-      const finalHistory = [...updatedHistory, errorResponse]
-      setChatHistory(finalHistory)
+      const finalHistory: Message[] = [
+        ...updatedHistory,
+        { role: 'assistant' as const, content: errorMessage, timestamp: new Date() }
+      ]
       await saveChatHistory(finalHistory)
     } finally {
       setIsLoading(false)
@@ -319,8 +322,65 @@ export function GlowAIChat({ showButton = true, defaultOpen = false }: GlowAICha
                         } p-4`}
                       >
                         {message.role === 'assistant' ? (
-                          <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-0 prose-headings:my-0 prose-strong:text-current prose-code:text-current prose-pre:text-current">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          <div className="text-xs leading-relaxed max-w-none">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              rehypePlugins={[rehypeRaw]}
+                              components={{
+                                h1: ({ node, ...props }) => <h1 className="text-base font-extrabold text-white mt-4 mb-2 flex items-center gap-2 border-b border-white/10 pb-1" {...props} />,
+                                h2: ({ node, ...props }) => <h2 className="text-sm font-bold text-slate-100 mt-3.5 mb-2" {...props} />,
+                                h3: ({ node, ...props }) => <h3 className="text-xs font-semibold text-slate-200 mt-3 mb-1" {...props} />,
+                                ul: ({ node, ...props }) => <ul className="list-disc pl-6 my-2 space-y-1 text-slate-300" {...props} />,
+                                ol: ({ node, ...props }) => <ol className="list-decimal pl-6 my-2 space-y-1 text-slate-300" {...props} />,
+                                li: ({ node, ...props }) => <li className="text-xs leading-relaxed" {...props} />,
+                                p: ({ node, ...props }) => <p className="text-xs leading-relaxed text-slate-300 my-2" {...props} />,
+                                blockquote: ({ node, ...props }) => (
+                                  <blockquote className="border-l-4 border-indigo-500 bg-indigo-500/5 px-4 py-2 my-3 rounded-r-xl text-slate-300 italic" {...props} />
+                                ),
+                                table: ({ node, ...props }) => (
+                                  <div className="overflow-x-auto my-4 rounded-xl border border-white/10">
+                                    <table className="w-full text-left border-collapse text-xs" {...props} />
+                                  </div>
+                                ),
+                                thead: ({ node, ...props }) => <thead className="bg-white/5 text-slate-200 font-bold border-b border-white/10" {...props} />,
+                                tbody: ({ node, ...props }) => <tbody className="divide-y divide-white/5" {...props} />,
+                                tr: ({ node, ...props }) => <tr className="hover:bg-white/5 transition-colors" {...props} />,
+                                th: ({ node, ...props }) => <th className="px-4 py-2 font-semibold" {...props} />,
+                                td: ({ node, ...props }) => <td className="px-4 py-2 text-slate-300" {...props} />,
+                                code: ({ node, inline, className, children, ...props }: any) => {
+                                  const match = /language-(\w+)/.exec(className || '');
+                                  const isInline = !match && !children.includes('\n');
+                                  if (isInline) {
+                                    return (
+                                      <code className="bg-slate-950 text-indigo-300 px-1.5 py-0.5 rounded-md font-mono text-[10px] border border-white/5" {...props}>
+                                        {children}
+                                      </code>
+                                    );
+                                  }
+                                  return (
+                                    <div className="relative my-4 group rounded-xl overflow-hidden border border-white/10 bg-slate-950 shadow-md">
+                                      {match && (
+                                        <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 border-b border-white/5 text-[9px] font-mono font-semibold text-slate-400">
+                                          <span>{match[1].toUpperCase()}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => navigator.clipboard.writeText(String(children).replace(/\n$/, ''))}
+                                            className="hover:text-white transition-colors"
+                                          >
+                                            Copy Code
+                                          </button>
+                                        </div>
+                                      )}
+                                      <pre className="p-3 overflow-x-auto text-[11px] text-indigo-100 font-mono leading-relaxed bg-slate-950">
+                                        <code className={className} {...props}>
+                                          {children}
+                                        </code>
+                                      </pre>
+                                    </div>
+                                  );
+                                }
+                              }}
+                            >
                               {message.content}
                             </ReactMarkdown>
                           </div>

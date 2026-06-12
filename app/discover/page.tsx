@@ -517,7 +517,7 @@ export default function DiscoverPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1 space-y-6">
-            <div className="bg-card border border-border rounded-lg p-6">
+            <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 shadow-md">
               <h3 className="font-bold mb-4">Search</h3>
               <Input
                 type="text"
@@ -541,7 +541,7 @@ export default function DiscoverPage() {
             </div>
 
             {(activeTab === "projects" || activeTab === "all") && (
-              <div className="bg-card border border-border rounded-lg p-6">
+              <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 shadow-md">
                 <h3 className="font-bold mb-4">Sort By</h3>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -567,7 +567,7 @@ export default function DiscoverPage() {
             )}
 
             {(activeTab === "all" || activeTab === "projects" || activeTab === "discussions" || activeTab === "journeys" || activeTab === "people") && (
-              <div className="bg-card border border-border rounded-lg p-6">
+              <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 shadow-md">
                 <h3 className="font-bold mb-4">Technologies</h3>
                 <Input
                   type="text"
@@ -616,10 +616,10 @@ export default function DiscoverPage() {
                       <h2 className="text-2xl font-bold text-foreground">Projects</h2>
                       <span className="text-sm text-muted-foreground">({projects.length})</span>
                     </div>
-                    <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6 md:space-y-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {projects.slice(0, 4).map((project) => (
-                        <Link key={project.id} href={`/projects/${project.id}`} className="block break-inside-avoid mt-6 first:mt-0 md:mt-0">
-                          <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
+                        <Link key={project.id} href={`/projects/${project.id}`} className="block h-full">
+                          <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer flex flex-col justify-between h-full group">
                             <div className="flex items-start justify-between mb-2">
                               <h3 className="text-lg font-bold text-foreground hover:text-primary">{project.title}</h3>
                               {project.visibility === "private" && <Lock className="w-4 h-4 text-muted-foreground" />}
@@ -673,7 +673,7 @@ export default function DiscoverPage() {
                     <div className="space-y-4">
                       {discussions.slice(0, 4).map((discussion) => (
                         <Link key={discussion.id} href={`/discussions/${discussion.id}`} className="block">
-                          <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
+                          <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer">
                             <div className="flex items-start justify-between mb-2">
                               <h3 className="text-lg font-bold text-foreground hover:text-primary">{discussion.title}</h3>
                               <Badge variant="secondary">{discussion.category}</Badge>
@@ -751,7 +751,7 @@ export default function DiscoverPage() {
                     <div className="space-y-4">
                       {journeyEntries.slice(0, 4).map((entry) => (
                         <Link key={entry.id} href={`/projects/${entry.projectId}/journey`} className="block">
-                          <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
+                          <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer">
                             <div className="flex items-start justify-between mb-2">
                               <h3 className="text-lg font-bold text-foreground hover:text-primary">{entry.title}</h3>
                             </div>
@@ -807,10 +807,10 @@ export default function DiscoverPage() {
                       <h2 className="text-2xl font-bold text-foreground">People</h2>
                       <span className="text-sm text-muted-foreground">({people.length})</span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                       {people.slice(0, 6).map((person) => (
                         <Link key={person.id} href={`/profile/${person.id}`} className="block">
-                          <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
+                          <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer">
                             <div className="flex items-start gap-4 mb-3">
                               <Avatar className="w-12 h-12">
                                 <AvatarImage src={person.avatar_url || "/placeholder.svg"} />
@@ -868,13 +868,14 @@ export default function DiscoverPage() {
                   <p>No projects found. Try adjusting your filters or search query.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground mb-4">
+                <div className="space-y-6">
+                  <p className="text-sm text-muted-foreground">
                     Found {projects.length} project{projects.length !== 1 ? "s" : ""}
                   </p>
-                  {projects.slice((page - 1) * pageSize, page * pageSize).map((project) => (
-                    <Link key={project.id} href={`/projects/${project.id}`} className="block">
-                      <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {projects.slice((page - 1) * pageSize, page * pageSize).map((project) => (
+                      <Link key={project.id} href={`/projects/${project.id}`} className="block h-full">
+                        <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer flex flex-col justify-between h-full group">
                         <div className="flex items-start justify-between mb-2">
                           <h3 className="text-lg font-bold text-foreground hover:text-primary">{project.title}</h3>
                           {project.visibility === "private" && <Lock className="w-4 h-4 text-muted-foreground" />}
@@ -902,6 +903,7 @@ export default function DiscoverPage() {
                       </div>
                     </Link>
                   ))}
+                  </div>
                   {Math.ceil(projects.length / pageSize) > 1 && (
                     <div className="pt-4">
                       <Pagination>
@@ -928,13 +930,14 @@ export default function DiscoverPage() {
                   <p>No discussions found. Try adjusting your filters or search query.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground mb-4">
+                <div className="space-y-6">
+                  <p className="text-sm text-muted-foreground">
                     Found {discussions.length} discussion{discussions.length !== 1 ? "s" : ""}
                   </p>
-                  {discussions.slice((page - 1) * pageSize, page * pageSize).map((discussion) => (
-                    <Link key={discussion.id} href={`/discussions/${discussion.id}`} className="block">
-                      <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
+                  <div className="space-y-4">
+                    {discussions.slice((page - 1) * pageSize, page * pageSize).map((discussion) => (
+                      <Link key={discussion.id} href={`/discussions/${discussion.id}`} className="block">
+                        <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer relative group">
                         <div className="flex items-start justify-between mb-2">
                           <h3 className="text-lg font-bold text-foreground hover:text-primary">{discussion.title}</h3>
                           <Badge variant="secondary">{discussion.category}</Badge>
@@ -986,6 +989,7 @@ export default function DiscoverPage() {
                       </div>
                     </Link>
                   ))}
+                  </div>
                   {Math.ceil(discussions.length / pageSize) > 1 && (
                     <div className="pt-4">
                       <Pagination>
@@ -1012,13 +1016,14 @@ export default function DiscoverPage() {
                   <p>No journey entries found. Try adjusting your filters or search query.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground mb-4">
+                <div className="space-y-6">
+                  <p className="text-sm text-muted-foreground">
                     Found {journeyEntries.length} journey entr{journeyEntries.length !== 1 ? "ies" : "y"}
                   </p>
-                  {journeyEntries.map((entry) => (
-                    <Link key={entry.id} href={`/projects/${entry.projectId}/journey`} className="block">
-                      <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
+                  <div className="space-y-4">
+                    {journeyEntries.map((entry) => (
+                      <Link key={entry.id} href={`/projects/${entry.projectId}/journey`} className="block">
+                        <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer">
                         <div className="flex items-start justify-between mb-2">
                           <h3 className="text-lg font-bold text-foreground hover:text-primary">{entry.title}</h3>
                         </div>
@@ -1051,6 +1056,7 @@ export default function DiscoverPage() {
                       </div>
                     </Link>
                   ))}
+                  </div>
                 </div>
               )
             ) : activeTab === "people" ? (
@@ -1064,10 +1070,10 @@ export default function DiscoverPage() {
                   <p className="text-sm text-muted-foreground mb-4">
                     Found {people.length} person{people.length !== 1 ? "s" : ""}
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {people.map((person) => (
                       <Link key={person.id} href={`/profile/${person.id}`} className="block">
-                        <div className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors cursor-pointer">
+                        <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer">
                           <div className="flex items-start gap-4 mb-3">
                             <Avatar className="w-12 h-12">
                               <AvatarImage src={person.avatar_url || "/placeholder.svg"} />
@@ -1090,7 +1096,7 @@ export default function DiscoverPage() {
                       </Link>
                     ))}
                   </div>
-                </div>
+                  </div>
               )
             ) : activeTab === "languages" ? (
               trendingLanguages.length === 0 ? (
@@ -1103,11 +1109,11 @@ export default function DiscoverPage() {
                   <p className="text-sm text-muted-foreground mb-4">
                     Top {trendingLanguages.length} trending programming languages
                   </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {trendingLanguages.map((item, index) => (
                       <div
                         key={item.language}
-                        className="bg-card border border-border rounded-lg p-6 hover:border-primary transition-colors"
+                        className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">

@@ -59,84 +59,106 @@ function HomeContent() {
     if (!message.trim()) return
 
     setIsLoading(true)
-    setChatHistory(prev => [...prev, { role: 'user', content: message }])
+    const updatedHistory = [...chatHistory, { role: 'user', content: message }]
+    setChatHistory(updatedHistory)
     setChatMessage("")
 
+    // Add empty placeholder assistant message that we'll stream into
+    setChatHistory([...updatedHistory, { role: 'assistant', content: '' }])
+
     try {
-      // Use our secure API route instead of calling OpenRouter directly
-      const response = await fetch("/api/openrouter", {
+      const response = await fetch("/api/groq", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          "model": "google/gemma-3-27b-it:free",
-          "messages": [
-            {
-              "role": "system",
-              "content": GLOW_AI_SYSTEM_PROMPT
-            },
-            ...chatHistory,
+          systemPrompt: GLOW_AI_SYSTEM_PROMPT,
+          messages: [
+            ...chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
             { role: "user", content: message }
-          ]
+          ],
+          webSearch: false
         })
       })
 
       if (!response.ok) {
-        // Try to get error details
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          if (errorData.error) {
-            errorMessage = typeof errorData.error === 'string'
-              ? errorData.error
-              : errorData.error.message || errorMessage;
-          } else if (errorData.message) {
-            errorMessage = errorData.message;
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) {
+        throw new Error('No body reader available');
+      }
+
+      let accumulatedContent = '';
+      let isDone = false;
+
+      while (!isDone) {
+        const { value, done } = await reader.read();
+        isDone = done;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: true });
+          
+          // Parse Server-Sent Events (SSE) from the response
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.slice(6).trim();
+              if (dataStr === '[DONE]') {
+                isDone = true;
+                break;
+              }
+              try {
+                const data = JSON.parse(dataStr);
+                if (data.text) {
+                  accumulatedContent += data.text;
+                  setChatHistory(prev => {
+                    const next = [...prev];
+                    if (next.length > 0 && next[next.length - 1].role === 'assistant') {
+                      next[next.length - 1] = {
+                        ...next[next.length - 1],
+                        content: accumulatedContent
+                      };
+                    }
+                    return next;
+                  });
+                }
+              } catch (e) {
+                // Ignore parsing errors for partial or empty lines
+              }
+            }
           }
-        } catch (e) {
-          errorMessage = `${response.status}: ${response.statusText || 'Unknown error'}`;
         }
-
-        if (response.status === 429) {
-          throw new Error('Rate limit exceeded. Please wait a moment before trying again.')
-        }
-        throw new Error(errorMessage);
       }
 
-      const data = await response.json()
-      console.log('API Response:', data) // Debug log
-
-      // Handle different response formats
-      let assistantMessage = ''
-      if (data.choices && data.choices.length > 0 && data.choices[0].message) {
-        assistantMessage = data.choices[0].message.content
-      } else if (data.content) {
-        assistantMessage = data.content
-      } else if (data.message) {
-        assistantMessage = data.message
-      } else {
-        assistantMessage = 'I received an unexpected response format. Please try again.'
-      }
-
-      setChatHistory(prev => [...prev, { role: 'assistant', content: assistantMessage }])
+      setChatHistory([
+        ...updatedHistory,
+        { role: 'assistant', content: accumulatedContent }
+      ])
     } catch (error) {
       console.error('AI Chat error:', error)
-
-      // Provide helpful fallback responses based on error type
       let errorMessage = 'Sorry, I encountered an error. Please try again.'
 
       if (error instanceof Error) {
-        if (error.message.includes('Rate limit')) {
-          errorMessage = 'I\'m getting too many requests right now. Please wait a moment and try again. In the meantime, feel free to explore DevSpace features!'
-        } else if (error.message.includes('429')) {
-          errorMessage = 'Rate limit exceeded. Please wait a moment before trying again. You can explore the DevSpace platform while you wait!'
+        if (error.message.includes('Rate limit') || error.message.includes('429')) {
+          errorMessage = 'Rate limit exceeded. Please wait a moment before trying again.'
         } else {
           errorMessage = `Sorry, I encountered an error: ${error.message}. Please try again later.`
         }
       }
 
-      setChatHistory(prev => [...prev, { role: 'assistant', content: errorMessage }])
+      setChatHistory(prev => {
+        const next = [...prev];
+        if (next.length > 0 && next[next.length - 1].role === 'assistant') {
+          next[next.length - 1] = {
+            ...next[next.length - 1],
+            content: errorMessage
+          };
+        }
+        return next;
+      });
     } finally {
       setIsLoading(false)
     }

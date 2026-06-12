@@ -238,7 +238,7 @@ export default function ProfilePage() {
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* Left Sidebar - Profile Info */}
           <aside className="w-full lg:w-64 flex-shrink-0">
-            <div className="bg-card border border-border rounded-lg p-4 md:p-6 space-y-4 lg:sticky lg:top-8">
+            <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 space-y-6 lg:sticky lg:top-8 shadow-md">
               <div className="flex flex-col items-center">
                 <Avatar className="w-24 h-24 md:w-32 md:h-32 mb-4">
                   <AvatarImage src={(profile as any).avatar_url || (profile as any).photoURL || "/placeholder.svg"} className="object-cover" />
@@ -340,7 +340,7 @@ export default function ProfilePage() {
           <div className="flex-1 space-y-6">
             {/* Badges Section */}
             {badgeProgress && (
-              <div className="bg-card border border-border rounded-lg p-4 md:p-6">
+              <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 shadow-md">
                 <h3 className="font-bold mb-4">Badges</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 md:gap-3 mb-4">
                   {badgeProgress.map((p) => (
@@ -362,14 +362,16 @@ export default function ProfilePage() {
 
             {/* Projects Section */}
             {projects.length > 0 && (
-              <div className="bg-card border border-border rounded-lg p-4 md:p-6">
+              <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 shadow-md">
                 <h3 className="font-bold mb-4">Projects</h3>
-                <div className="columns-1 md:columns-2 gap-3 md:gap-4 space-y-3 md:space-y-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {projects.map((project) => (
-                    <Link key={project.id} href={`/projects/${project.id}`} className="block break-inside-avoid mt-3 first:mt-0 md:mt-0">
-                      <div className="p-3 md:p-4 border border-border rounded-lg hover:border-primary transition-colors cursor-pointer">
-                        <h4 className="font-semibold text-foreground mb-2 text-sm md:text-base">{project.title}</h4>
-                        <p className="text-xs md:text-sm text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
+                    <Link key={project.id} href={`/projects/${project.id}`} className="block h-full">
+                      <div className="p-5 border border-border/80 bg-background/50 hover:bg-background/80 rounded-xl hover:border-primary/60 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 cursor-pointer flex flex-col justify-between h-full group">
+                        <div>
+                          <h4 className="font-semibold text-foreground mb-2 text-sm md:text-base">{project.title}</h4>
+                          <p className="text-xs md:text-sm text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
+                        </div>
                         <TechBadgeList items={project.tech_stack || (project.repo_languages ? Object.keys(project.repo_languages) : [])} max={6} />
                       </div>
                     </Link>
@@ -380,7 +382,7 @@ export default function ProfilePage() {
 
             {/* GitHub Profile README */}
             {profileReadme && (
-              <div className="bg-card border border-border rounded-lg p-4 md:p-6 overflow-hidden">
+              <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 overflow-hidden shadow-md">
                 <div className="flex items-center gap-2 mb-4 border-b border-border pb-3">
                   <Github className="w-5 h-5 text-foreground" />
                   <h3 className="font-bold text-lg md:text-xl">{profileUserData?.username}/README.md</h3>
@@ -394,7 +396,7 @@ export default function ProfilePage() {
             )}
 
             {/* Activity Feed Section */}
-            <div className="bg-card border border-border rounded-lg p-4 md:p-6">
+            <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 shadow-md">
               <h3 className="font-bold mb-4">Activity</h3>
               {activities.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">

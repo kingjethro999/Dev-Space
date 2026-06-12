@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 
 import { Analytics } from "@vercel/analytics/next"
+import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/lib/auth-context"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -9,7 +10,15 @@ import { CookieConsent } from "@/components/cookie-consent"
 import { Toaster } from "@/components/ui/toaster"
 import { QuickNavigator } from "@/components/quick-navigator"
 
-// Using GitHub's system font stack - no Google Fonts needed
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+})
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+})
 
 export const metadata: Metadata = {
   title: "Dev Space - Developer Community by King Jethro",
@@ -23,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="antialiased">
         <ThemeProvider
           attribute="class"

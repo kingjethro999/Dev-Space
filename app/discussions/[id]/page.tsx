@@ -196,11 +196,11 @@ export default function DiscussionDetailPage() {
           Back to Discussions
         </Link>
 
-        <div className="bg-card border border-border rounded-lg p-8 space-y-6 mb-8">
+        <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 md:p-8 space-y-6 mb-8 shadow-xl relative overflow-hidden">
           <div>
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
               <div>
-                <h1 className="text-4xl font-bold text-foreground mb-2">{discussion.title}</h1>
+                <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{discussion.title}</h1>
                 <div className="flex gap-2 mb-4">
                   <span className="px-3 py-1 bg-primary/10 text-primary text-sm rounded">{discussion.category}</span>
                   {discussion.tags.map((tag) => (
@@ -255,10 +255,10 @@ export default function DiscussionDetailPage() {
         </div>
 
         <div className="space-y-6">
-          <div className="bg-card border border-border rounded-lg p-6">
+          <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 shadow-md">
             <h3 className="font-bold mb-4">Add a Comment</h3>
             <form onSubmit={e => { e.preventDefault(); addComment(commentText); setCommentText(""); }} className="space-y-4">
-              <Textarea value={commentText} onChange={e => setCommentText(e.target.value)} placeholder="Share your thoughts..." className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" rows={4} />
+              <Textarea value={commentText} onChange={e => setCommentText(e.target.value)} placeholder="Share your thoughts..." className="w-full px-4 py-2 border border-border/80 rounded-xl bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" rows={4} />
               <Button type="submit" disabled={submitting || !commentText.trim()}>
                 {submitting ? "Posting..." : "Post Comment"}
               </Button>
