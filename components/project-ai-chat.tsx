@@ -295,29 +295,29 @@ Provide thorough, clean, and developer-friendly answers. Use clear markdown head
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 20, stiffness: 150 }}
-              className="fixed top-0 right-0 h-screen w-full sm:w-[480px] md:w-[600px] lg:w-[640px] bg-slate-950/95 backdrop-blur-md border-l border-white/10 z-50 flex flex-col shadow-2xl overflow-hidden font-sans"
+              className="fixed top-0 right-0 h-screen w-full sm:w-[480px] md:w-[600px] lg:w-[640px] bg-background/95 backdrop-blur-md border-l border-border z-50 flex flex-col shadow-2xl overflow-hidden font-sans"
             >
               {/* Drawer Header */}
-              <div className="p-6 border-b border-white/10 bg-slate-900/60 flex items-center justify-between flex-shrink-0">
+              <div className="p-6 border-b border-border bg-card/65 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-indigo-500/10 border border-indigo-500/25 rounded-xl">
-                    <Bot className="w-6 h-6 text-indigo-400" />
+                  <div className="p-2 bg-primary/10 border border-primary/25 rounded-xl">
+                    <Bot className="w-6 h-6 text-primary" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
                       Project AI Agent
-                      <span className="px-2 py-0.5 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 rounded-full font-medium">
+                      <span className="px-2 py-0.5 text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 rounded-full font-medium">
                         Codebase Context
                       </span>
                     </h2>
-                    <p className="text-xs text-slate-400 font-medium">Powered by Llama & Groq Speed</p>
+                    <p className="text-xs text-muted-foreground font-medium">Powered by Llama & Groq Speed</p>
                   </div>
                 </div>
                 <Button 
                   variant="ghost" 
                   size="icon" 
                   onClick={toggleDrawer}
-                  className="rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white"
+                  className="rounded-xl border border-border bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
                 >
                   <X className="w-5 h-5" />
                 </Button>
@@ -325,28 +325,28 @@ Provide thorough, clean, and developer-friendly answers. Use clear markdown head
 
               {/* Indexing / Loading Status */}
               {(isIndexing || !indexSuccess) && (
-                <div className="p-6 bg-indigo-950/20 border-b border-white/5 flex flex-col gap-3 flex-shrink-0">
+                <div className="p-6 bg-primary/10 border-b border-border flex flex-col gap-3 flex-shrink-0">
                   <div className="flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
-                    <span className="text-sm text-slate-300 font-medium">{indexingStep}</span>
+                    <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                    <span className="text-sm text-foreground/90 font-medium">{indexingStep}</span>
                   </div>
-                  <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-500 rounded-full animate-pulse" style={{ width: isIndexing ? "75%" : "20%" }} />
+                  <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: isIndexing ? "75%" : "20%" }} />
                   </div>
                 </div>
               )}
 
               {/* Indexing Success - Show Indexed Files */}
               {indexSuccess && indexedFiles.length > 0 && (
-                <div className="px-6 py-3 bg-slate-900/40 border-b border-white/5 flex-shrink-0">
+                <div className="px-6 py-3 bg-muted/40 border-b border-border flex-shrink-0">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-                      <FolderTree className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                      <FolderTree className="w-3.5 h-3.5 text-primary" />
                       INDEXED FILES ({indexedFiles.length})
                     </span>
                     <button 
                       onClick={startIndexing}
-                      className="text-[10px] text-indigo-400 hover:underline font-semibold"
+                      className="text-[10px] text-primary hover:underline font-semibold"
                     >
                       Re-index codebase
                     </button>
@@ -355,10 +355,10 @@ Provide thorough, clean, and developer-friendly answers. Use clear markdown head
                     {indexedFiles.map((f, i) => (
                       <span 
                         key={i} 
-                        className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/10 text-slate-300 rounded-lg flex items-center gap-1 hover:border-indigo-500/30 transition-colors"
+                        className="text-[10px] px-2 py-0.5 bg-card border border-border text-foreground/80 rounded-lg flex items-center gap-1 hover:border-primary/30 transition-colors"
                         title={f.path}
                       >
-                        <Code2 className="w-2.5 h-2.5 text-indigo-300" />
+                        <Code2 className="w-2.5 h-2.5 text-primary" />
                         {f.path.split("/").pop()}
                       </span>
                     ))}
@@ -371,11 +371,11 @@ Provide thorough, clean, and developer-friendly answers. Use clear markdown head
                 <div className="space-y-6 pb-6">
                   {/* Assistant Introduction */}
                   <div className="flex gap-4">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center flex-shrink-0">
-                      <Bot className="w-4 h-4 text-indigo-400" />
+                    <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                      <Bot className="w-4 h-4 text-primary" />
                     </div>
-                    <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-4 shadow-sm">
-                      <p className="text-sm text-slate-300 leading-relaxed">
+                    <div className="flex-1 bg-card border border-border rounded-2xl p-4 shadow-sm">
+                      <p className="text-sm text-foreground/85 leading-relaxed">
                         Hi, I am your dedicated AI Assistant for <strong>{projectTitle}</strong>. 
                         I have indexed the codebase including code files, configuration configurations, and dependencies.
                         Ask me anything about how the project works, architecture designs, or code snippets!
@@ -385,25 +385,25 @@ Provide thorough, clean, and developer-friendly answers. Use clear markdown head
                       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <button
                           onClick={() => handleQuickPrompt("Explain codebase architecture")}
-                          className="text-left text-xs p-2.5 bg-slate-900/60 hover:bg-slate-900/90 text-indigo-300 border border-indigo-500/15 hover:border-indigo-500/40 rounded-xl transition-all duration-200"
+                          className="text-left text-xs p-2.5 bg-muted/65 hover:bg-muted/90 text-primary border border-border hover:border-primary/45 rounded-xl transition-all duration-200"
                         >
                           📐 Explain architecture
                         </button>
                         <button
                           onClick={() => handleQuickPrompt("What are the main APIs, routes, or dependencies used?")}
-                          className="text-left text-xs p-2.5 bg-slate-900/60 hover:bg-slate-900/90 text-indigo-300 border border-indigo-500/15 hover:border-indigo-500/40 rounded-xl transition-all duration-200"
+                          className="text-left text-xs p-2.5 bg-muted/65 hover:bg-muted/90 text-primary border border-border hover:border-primary/45 rounded-xl transition-all duration-200"
                         >
                           🔌 APIs & Dependencies
                         </button>
                         <button
                           onClick={() => handleQuickPrompt("How does authentication and user management work here?")}
-                          className="text-left text-xs p-2.5 bg-slate-900/60 hover:bg-slate-900/90 text-indigo-300 border border-indigo-500/15 hover:border-indigo-500/40 rounded-xl transition-all duration-200"
+                          className="text-left text-xs p-2.5 bg-muted/65 hover:bg-muted/90 text-primary border border-border hover:border-primary/45 rounded-xl transition-all duration-200"
                         >
                           🔒 How does auth work?
                         </button>
                         <button
                           onClick={() => handleQuickPrompt("Generate a developer onboarding guide for setting up and running this codebase")}
-                          className="text-left text-xs p-2.5 bg-slate-900/60 hover:bg-slate-900/90 text-indigo-300 border border-indigo-500/15 hover:border-indigo-500/40 rounded-xl transition-all duration-200"
+                          className="text-left text-xs p-2.5 bg-muted/65 hover:bg-muted/90 text-primary border border-border hover:border-primary/45 rounded-xl transition-all duration-200"
                         >
                           🚀 Setup onboarding guide
                         </button>
@@ -425,7 +425,7 @@ Provide thorough, clean, and developer-friendly answers. Use clear markdown head
                           className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${
                             msg.role === "user" 
                               ? "bg-gradient-to-tr from-violet-600 to-indigo-600 text-white" 
-                              : "bg-indigo-500/10 border border-indigo-500/20 text-indigo-400"
+                              : "bg-primary/10 border border-primary/20 text-primary"
                           }`}
                         >
                           {msg.role === "user" ? <Terminal className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
@@ -433,18 +433,18 @@ Provide thorough, clean, and developer-friendly answers. Use clear markdown head
                         <div 
                           className={`flex-1 rounded-2xl border p-4 shadow-sm overflow-hidden ${
                             msg.role === "user"
-                              ? "bg-slate-900/80 border-white/10 text-slate-100"
-                              : "bg-slate-900/45 border-white/5 text-slate-200"
+                              ? "bg-primary/10 border-primary/20 text-foreground"
+                              : "bg-card border-border text-foreground"
                           }`}
                         >
                           {msg.role === "assistant" ? (
-                            <div className="prose prose-sm prose-invert max-w-none text-slate-300 leading-relaxed
-                              prose-headings:text-white prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
+                            <div className="prose prose-sm dark:prose-invert max-w-none text-foreground/90 leading-relaxed
+                              prose-headings:text-foreground prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
                               prose-h1:text-lg prose-h2:text-base prose-h3:text-sm
                               prose-p:my-1.5 prose-ul:my-1.5 prose-li:my-0.5
-                              prose-code:bg-slate-950 prose-code:text-indigo-300 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:before:content-none prose-code:after:content-none
-                              prose-pre:bg-slate-950 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl prose-pre:p-3 prose-pre:mt-2
-                              prose-blockquote:border-l-4 prose-blockquote:border-indigo-500 prose-blockquote:bg-indigo-500/5 prose-blockquote:px-3 prose-blockquote:py-1 prose-blockquote:rounded-r-lg"
+                              prose-code:bg-muted prose-code:text-primary prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:before:content-none prose-code:after:content-none
+                              prose-pre:bg-zinc-950 dark:prose-pre:bg-zinc-950/75 prose-pre:border prose-pre:border-border prose-pre:rounded-xl prose-pre:p-3 prose-pre:mt-2
+                              prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:bg-primary/5 prose-blockquote:px-3 prose-blockquote:py-1 prose-blockquote:rounded-r-lg"
                             >
                               <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                                 {msg.content}
@@ -461,13 +461,13 @@ Provide thorough, clean, and developer-friendly answers. Use clear markdown head
                   {/* Loader for response streaming */}
                   {isLoading && (
                     <div className="flex gap-4">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center flex-shrink-0 animate-pulse">
-                        <Bot className="w-4 h-4 text-indigo-400" />
+                      <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 animate-pulse">
+                        <Bot className="w-4 h-4 text-primary" />
                       </div>
-                      <div className="bg-slate-900/40 border border-white/5 px-4 py-3 rounded-2xl flex items-center gap-1">
-                        <span className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-bounce" />
-                        <span className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: "0.15s" }} />
-                        <span className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: "0.3s" }} />
+                      <div className="bg-card border border-border px-4 py-3 rounded-2xl flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" />
+                        <span className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0.15s" }} />
+                        <span className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0.3s" }} />
                       </div>
                     </div>
                   )}
@@ -477,7 +477,7 @@ Provide thorough, clean, and developer-friendly answers. Use clear markdown head
               </ScrollArea>
 
               {/* Input Form */}
-              <div className="p-4 border-t border-white/10 bg-slate-950/80 flex-shrink-0">
+              <div className="p-4 border-t border-border bg-background/85 flex-shrink-0">
                 <form 
                   onSubmit={(e) => {
                     e.preventDefault()
@@ -492,12 +492,12 @@ Provide thorough, clean, and developer-friendly answers. Use clear markdown head
                     onChange={(e) => setChatMessage(e.target.value)}
                     placeholder="Ask about components, routes, or algorithms..."
                     disabled={isLoading || isIndexing}
-                    className="flex-1 bg-slate-900/60 border-white/10 text-white rounded-xl placeholder:text-slate-500 focus-visible:ring-indigo-500 focus-visible:ring-offset-0"
+                    className="flex-1 bg-muted/60 border-border text-foreground rounded-xl placeholder:text-muted-foreground focus-visible:ring-primary focus-visible:ring-offset-0"
                   />
                   <Button
                     type="submit"
                     disabled={!chatMessage.trim() || isLoading || isIndexing}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl px-5"
+                    className="bg-primary hover:bg-primary/95 text-primary-foreground font-semibold rounded-xl px-5"
                   >
                     <Send className="w-4 h-4" />
                   </Button>

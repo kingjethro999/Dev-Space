@@ -432,7 +432,14 @@ export default function DiscoverPage() {
   }, [user, activeTab])
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+          <p className="text-sm text-muted-foreground font-medium">Loading Discover…</p>
+        </div>
+      </div>
+    )
   }
 
   if (!user) {
@@ -447,78 +454,44 @@ export default function DiscoverPage() {
     <div className="min-h-screen bg-background">
       <UniversalNav />
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">Discover</h1>
-              <p className="text-muted-foreground">Explore projects, discussions, journeys, people, and more</p>
-            </div>
+          <div className="mb-6">
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-2 gradient-text">Discover</h1>
+            <p className="text-muted-foreground">Explore projects, discussions, journeys, people, and more</p>
           </div>
 
-          {/* Content Type Tabs */}
-          <div className="flex gap-2 mb-6 border-b border-border overflow-x-auto scrollbar-hide pb-px -mb-px">
-            <Button
-              variant="ghost"
-              onClick={() => setActiveTab("all")}
-              className={`rounded-none border-b-2 shrink-0 text-sm ${activeTab === "all" ? "border-primary" : "border-transparent"
+          {/* Tab Pills */}
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
+            {[
+              { id: "all", icon: Grid3x3, label: "All" },
+              { id: "projects", icon: Code2, label: "Projects" },
+              { id: "discussions", icon: MessageSquare, label: "Discussions" },
+              { id: "journeys", icon: BookOpen, label: "Journeys" },
+              { id: "people", icon: Users, label: "People" },
+              { id: "languages", icon: TrendingUp, label: "Trending" },
+            ].map(({ id, icon: Icon, label }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id as any)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 ${
+                  activeTab === id
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                 }`}
-            >
-              <Grid3x3 className="w-4 h-4 mr-1.5" />
-              All
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setActiveTab("projects")}
-              className={`rounded-none border-b-2 shrink-0 text-sm ${activeTab === "projects" ? "border-primary" : "border-transparent"
-                }`}
-            >
-              <Code2 className="w-4 h-4 mr-1.5" />
-              Projects
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setActiveTab("discussions")}
-              className={`rounded-none border-b-2 shrink-0 text-sm ${activeTab === "discussions" ? "border-primary" : "border-transparent"
-                }`}
-            >
-              <MessageSquare className="w-4 h-4 mr-1.5" />
-              Discussions
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setActiveTab("journeys")}
-              className={`rounded-none border-b-2 shrink-0 text-sm ${activeTab === "journeys" ? "border-primary" : "border-transparent"
-                }`}
-            >
-              <BookOpen className="w-4 h-4 mr-1.5" />
-              Journeys
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setActiveTab("people")}
-              className={`rounded-none border-b-2 shrink-0 text-sm ${activeTab === "people" ? "border-primary" : "border-transparent"
-                }`}
-            >
-              <Users className="w-4 h-4 mr-1.5" />
-              People
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setActiveTab("languages")}
-              className={`rounded-none border-b-2 shrink-0 text-sm whitespace-nowrap ${activeTab === "languages" ? "border-primary" : "border-transparent"
-                }`}
-            >
-              <TrendingUp className="w-4 h-4 mr-1.5" />
-              Trending
-            </Button>
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {label}
+              </button>
+            ))}
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 shadow-md">
-              <h3 className="font-bold mb-4">Search</h3>
+          <div className="lg:col-span-1 space-y-4">
+            <div className="premium-card p-5">
+              <h3 className="font-semibold text-sm uppercase tracking-widest text-muted-foreground mb-3">Search</h3>
               <Input
                 type="text"
                 value={searchQuery}
@@ -541,8 +514,8 @@ export default function DiscoverPage() {
             </div>
 
             {(activeTab === "projects" || activeTab === "all") && (
-              <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 shadow-md">
-                <h3 className="font-bold mb-4">Sort By</h3>
+              <div className="premium-card p-5">
+                <h3 className="font-semibold text-sm uppercase tracking-widest text-muted-foreground mb-3">Sort By</h3>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -567,8 +540,8 @@ export default function DiscoverPage() {
             )}
 
             {(activeTab === "all" || activeTab === "projects" || activeTab === "discussions" || activeTab === "journeys" || activeTab === "people") && (
-              <div className="bg-card/45 backdrop-blur-md border border-border/80 rounded-2xl p-6 shadow-md">
-                <h3 className="font-bold mb-4">Technologies</h3>
+              <div className="premium-card p-5">
+                <h3 className="font-semibold text-sm uppercase tracking-widest text-muted-foreground mb-3">Technologies</h3>
                 <Input
                   type="text"
                   placeholder="Filter technologies..."
@@ -603,8 +576,18 @@ export default function DiscoverPage() {
 
           <div className="lg:col-span-3">
             {discoverLoading ? (
-              <div className="text-center py-12 text-muted-foreground">
-                Loading {activeTab}...
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="premium-card p-6 space-y-3">
+                    <div className="skeleton h-5 w-3/4" />
+                    <div className="skeleton h-3 w-full" />
+                    <div className="skeleton h-3 w-5/6" />
+                    <div className="flex gap-2 mt-4">
+                      <div className="skeleton h-5 w-14 rounded-full" />
+                      <div className="skeleton h-5 w-14 rounded-full" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : activeTab === "all" ? (
               <div className="space-y-12">
