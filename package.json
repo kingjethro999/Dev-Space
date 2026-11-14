@@ -5,11 +5,11 @@
   "author": "King Jethro <github.com/kingjethro999>",
   "private": true,
   "scripts": {
-    "build": "node init && next build",
-    "dev": "node init && next dev --turbopack",
-    "dev:webpack": "node init && next dev --webpack",
+    "build": "next build",
+    "dev": "next dev --turbopack",
+    "dev:webpack": "next dev --webpack",
     "lint": "eslint .",
-    "start": "node init && next start"
+    "start": "next start"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
